@@ -1,17 +1,17 @@
-use getopts::Options;
+use getopts::{Options, ParsingStyle};
 use std::env;
-use std::fs::File;
-use std::io::prelude::*;
-use std::process::*;
-use zip::read::*;
+use std::process::exit;
 
+mod init;
 mod profile;
 mod version_serde;
 
-static USAGE: &str = r#"
-Usage: modman [options] <verb> [verb options]
+use crate::init::*;
 
-<verb> is one of:
+static USAGE: &str = r#"
+Usage: modman [options] <command> [command options]
+
+<command> is one of:
 
   init: Create a new mod configuration in this directory.
 
@@ -30,35 +30,39 @@ Usage: modman [options] <verb> [verb options]
           or both.
 "#;
 
-fn print_usage(opts: &Options, code: i32) {
+fn print_usage(opts: &Options) -> ! {
     println!("{}", opts.usage(USAGE));
-    exit(code);
+    exit(0);
 }
 
-fn eprint_usage(opts: &Options, code: i32) {
+fn eprint_usage(opts: &Options) -> ! {
     eprintln!("{}", opts.usage(USAGE));
-    exit(code);
+    exit(1);
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
 
     let mut opts = Options::new();
-    opts.optflag("h", "help", "Print this help menu");
     opts.optopt(
         "C",
         "directory",
         "run modman as if it were started in <DIR> instead of the current directory.",
         "<DIR>",
     );
+    // We don't want to eat the subcommands' args.
+    opts.parsing_style(ParsingStyle::StopAtFirstFree);
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
-        Err(f) => panic!(f),
+        Err(f) => {
+            eprintln!("{}", f.to_string());
+            eprint_usage(&opts);
+        }
     };
 
-    if matches.opt_present("h") || (matches.free.len() == 1 && matches.free[0] == "help") {
-        print_usage(&opts, 0);
+    if matches.free.len() == 1 && matches.free[0] == "help" {
+        print_usage(&opts);
     }
 
     if let Some(chto) = matches.opt_str("C") {
@@ -68,27 +72,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let input = &matches.free;
-    match input.len() {
-        0 => {
-            eprintln!("No input file provided");
-            eprint_usage(&opts, 1)
-        }
-        1 => (),
-        _ => {
-            eprintln!("Can only take one input file at once");
-            eprint_usage(&opts, 1)
-        }
-    };
+    let mut free_args = matches.free;
 
-    let f = File::open(&input[0])?;
-    let mut zip = ZipArchive::new(f)?;
-
-    for i in 0..zip.len() {
-        let file = zip.by_index(i).unwrap();
-        println!("Filename: {}", file.name());
+    if free_args.is_empty() {
+        eprintln!("Please give a command.");
+        eprint_usage(&opts);
     }
 
-    println!("Hello, world!");
-    Ok(())
+    // If the user passed multiple args (see above),
+    // and the first one is "help", swap it with the second so that
+    // "help init" produces the same help text as "init help".
+    if free_args[0] == "help" {
+        free_args.swap(0, 1);
+    }
+
+    match free_args[0].as_ref() {
+        "init" => init_command(&free_args[1..]),
+        wut => {
+            eprintln!("Unknown command: {}", wut);
+            eprint_usage(&opts);
+        }
+    }
 }
