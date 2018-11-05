@@ -1,3 +1,4 @@
+use failure::*;
 use getopts::Options;
 
 use std::fs::File;
@@ -7,7 +8,7 @@ use std::process::exit;
 use crate::profile::*;
 
 static USAGE: &str = r#"
-Usage: modman [-C <DIR>] init --root <DIR>
+Usage: modman [-C <DIR>] init [options]
 
 Create a new mod configuration file in this directory (or the one given with -C).
 The file will be named"#;
@@ -21,10 +22,10 @@ fn print_usage(opts: &Options) -> ! {
 fn eprint_usage(opts: &Options) -> ! {
     let help = format!("{} {}", USAGE, PROFILE_PATH);
     eprintln!("{}", opts.usage(&help));
-    exit(1);
+    exit(2);
 }
 
-pub fn init_command(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+pub fn init_command(args: &[String]) -> Result<(), Error> {
     let mut opts = Options::new();
     opts.optflag(
         "f",
@@ -57,17 +58,18 @@ pub fn init_command(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if profile_exists() && !matches.opt_present("f") {
-        eprintln!("Profile file ({}) already exists!", PROFILE_PATH);
-        exit(2);
+        return Err(format_err!(
+            "Profile file ({}) already exists!",
+            PROFILE_PATH
+        ));
     }
 
     let root_path = PathBuf::from(&matches.opt_str("root").unwrap());
     if !root_path.is_dir() {
-        eprintln!(
+        return Err(format_err!(
             "{} is not an existing directory!",
-            root_path.to_str().unwrap()
-        );
-        exit(2);
+            root_path.to_string_lossy()
+        ));
     }
 
     let mut p = Profile::default();

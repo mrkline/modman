@@ -1,11 +1,14 @@
+use failure::*;
 use getopts::{Options, ParsingStyle};
 use std::env;
 use std::process::exit;
 
+mod activate;
 mod init;
 mod profile;
 mod version_serde;
 
+use crate::activate::*;
 use crate::init::*;
 
 static USAGE: &str = r#"
@@ -37,10 +40,10 @@ fn print_usage(opts: &Options) -> ! {
 
 fn eprint_usage(opts: &Options) -> ! {
     eprintln!("{}", opts.usage(USAGE));
-    exit(1);
+    exit(2);
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn do_it() -> Result<(), Error> {
     let args: Vec<String> = env::args().collect();
 
     let mut opts = Options::new();
@@ -66,10 +69,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(chto) = matches.opt_str("C") {
-        if !env::set_current_dir(&chto).is_ok() {
-            eprintln!("Couldn't set working directory to {}", chto);
-            exit(1);
-        }
+        env::set_current_dir(&chto).map_err(|e| {
+            let ctxt = format!("Couldn't set working directory to {}", chto);
+            e.context(ctxt)
+        })?;
     }
 
     let mut free_args = matches.free;
@@ -88,9 +91,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match free_args[0].as_ref() {
         "init" => init_command(&free_args[1..]),
+        "activate" => activate_command(&free_args[1..]),
         wut => {
             eprintln!("Unknown command: {}", wut);
             eprint_usage(&opts);
         }
     }
+}
+
+fn main() {
+    do_it().unwrap_or_else(|e| {
+        eprintln!("{}", pretty_error(&e));
+        exit(1);
+    });
+}
+
+// Borrowed lovingly from Burntsushi:
+// https://www.reddit.com/r/rust/comments/8fecqy/can_someone_show_an_example_of_failure_crate_usage/dy2u9q6/
+// Chains errors into a big string.
+fn pretty_error(err: &failure::Error) -> String {
+    let mut pretty = err.to_string();
+    let mut prev = err.as_fail();
+    while let Some(next) = prev.cause() {
+        pretty.push_str(":\n");
+        pretty.push_str(&next.to_string());
+        prev = next;
+    }
+    pretty
 }

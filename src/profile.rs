@@ -33,8 +33,8 @@ pub struct Mod {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ModFile {
     pub path: PathBuf,
-    pub original_hash: FileHash,
-    pub game_hash: FileHash,
+    pub mod_hash: FileHash,
+    pub original_hash: Option<FileHash>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
