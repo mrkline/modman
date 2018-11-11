@@ -1,12 +1,15 @@
-use failure::*;
-use getopts::{Options, ParsingStyle};
 use std::env;
 use std::process::exit;
 
+use failure::*;
+use getopts::{Options, ParsingStyle};
+
 mod activate;
 mod init;
+mod modification;
 mod profile;
 mod version_serde;
+mod zip_mod;
 
 use crate::activate::*;
 use crate::init::*;
@@ -53,6 +56,11 @@ fn do_it() -> Result<(), Error> {
         "run modman as if it were started in <DIR> instead of the current directory.",
         "<DIR>",
     );
+    opts.optflagmulti(
+        "v",
+        "verbose",
+        "print progress to stderr. Pass multiple times for more info.",
+    );
     // We don't want to eat the subcommands' args.
     opts.parsing_style(ParsingStyle::StopAtFirstFree);
 
@@ -75,6 +83,8 @@ fn do_it() -> Result<(), Error> {
         })?;
     }
 
+    let verbosity = matches.opt_count("v") as u8;
+
     let mut free_args = matches.free;
 
     if free_args.is_empty() {
@@ -90,8 +100,8 @@ fn do_it() -> Result<(), Error> {
     }
 
     match free_args[0].as_ref() {
-        "init" => init_command(&free_args[1..]),
-        "activate" => activate_command(&free_args[1..]),
+        "init" => init_command(&free_args[1..], verbosity),
+        "activate" => activate_command(&free_args[1..], verbosity),
         wut => {
             eprintln!("Unknown command: {}", wut);
             eprint_usage(&opts);
@@ -115,6 +125,10 @@ fn pretty_error(err: &failure::Error) -> String {
     while let Some(next) = prev.cause() {
         pretty.push_str(":\n");
         pretty.push_str(&next.to_string());
+        if let Some(bt) = next.backtrace() {
+            pretty.push_str("\n");
+            pretty.push_str(&bt.to_string());
+        }
         prev = next;
     }
     pretty

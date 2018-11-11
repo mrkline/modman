@@ -1,8 +1,9 @@
-use semver::Version;
-use serde_derive::{Deserialize, Serialize};
 use std::collections::*;
 use std::default::Default;
 use std::path::{Path, PathBuf};
+
+use semver::Version;
+use serde_derive::{Deserialize, Serialize};
 
 use crate::version_serde::*;
 
@@ -14,7 +15,7 @@ pub fn profile_exists() -> bool {
 
 pub type FileHash = [u8; 32];
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Profile {
     pub root_directory: PathBuf,
     pub mods: BTreeMap<PathBuf, Mod>,
@@ -27,12 +28,11 @@ pub struct Mod {
         deserialize_with = "deserialize_version"
     )]
     pub version: Version,
-    pub files: Vec<ModFile>,
+    pub files: BTreeMap<PathBuf, ModFileMetadata>,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct ModFile {
-    pub path: PathBuf,
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ModFileMetadata {
     pub mod_hash: FileHash,
     pub original_hash: Option<FileHash>,
 }
@@ -51,7 +51,7 @@ impl Default for Meta {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProfileFileData {
     pub profile: Profile,
     pub meta: Meta,
