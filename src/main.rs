@@ -46,7 +46,7 @@ fn eprint_usage(opts: &Options) -> ! {
     exit(2);
 }
 
-fn do_it() -> Result<(), Error> {
+fn do_it() -> Fallible<()> {
     let args: Vec<String> = env::args().collect();
 
     let mut opts = Options::new();
@@ -126,8 +126,20 @@ fn pretty_error(err: &failure::Error) -> String {
         pretty.push_str(":\n");
         pretty.push_str(&next.to_string());
         if let Some(bt) = next.backtrace() {
-            pretty.push_str("\n");
-            pretty.push_str(&bt.to_string());
+            let mut bts = bt.to_string();
+            // If RUST_BACKTRACE is not defined, next.backtrace() gives us
+            // Some(bt), but bt.to_string() gives us an empty string.
+            // If we push a newline to the return value and nothing else,
+            // we get something like:
+            // ```
+            // Some errror
+            // :
+            // Its cause
+            // ```
+            if !bts.is_empty() {
+                bts.push_str("\n");
+                pretty.push_str(&bts);
+            }
         }
         prev = next;
     }

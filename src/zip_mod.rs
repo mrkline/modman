@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
+use failure::*;
 use zip::read::ZipArchive;
 
 use crate::modification::Mod;
@@ -11,13 +12,19 @@ pub struct ZipMod {
 }
 
 impl ZipMod {
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, failure::Error> {
+    pub fn new<P: AsRef<Path>>(path: P) -> Fallible<Self> {
         let f = File::open(path)?;
         let br = BufReader::new(f);
-        let z = ZipArchive::new(br)?;
+        let mut z = ZipArchive::new(br)?;
 
-        // TODO: Look for VERSION.txt
-        // TODO: Look for README.txt
+        // TODO: Parse and examine
+        z.by_name("VERSION.txt")
+            .context("Couldn't find VERSION.txt")?;
+
+        // TODO: Should we demand that it contain something?
+        z.by_name("README.txt")
+            .context("Couldn't find README.txt")?;
+
         // TODO: Pull out a base directory name.
         //       A pass over every other path to validate them seems wasetful,
         //       especially since users will probably call paths() or

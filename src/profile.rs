@@ -1,6 +1,6 @@
 use std::collections::*;
 use std::default::Default;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use semver::Version;
 use serde_derive::{Deserialize, Serialize};
@@ -8,10 +8,6 @@ use serde_derive::{Deserialize, Serialize};
 use crate::version_serde::*;
 
 pub static PROFILE_PATH: &str = "modman.profile";
-
-pub fn profile_exists() -> bool {
-    Path::new(PROFILE_PATH).exists()
-}
 
 pub type FileHash = [u8; 32];
 

@@ -27,7 +27,7 @@ fn eprint_usage() -> ! {
     exit(2);
 }
 
-pub fn activate_command(args: &[String], verbosity: u8) -> Result<(), Error> {
+pub fn activate_command(args: &[String], verbosity: u8) -> Fallible<()> {
     if args.len() == 1 && args[0] == "help" {
         print_usage();
     }

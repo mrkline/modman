@@ -1,5 +1,5 @@
 use std::default::Default;
-use std::fs::File;
+use std::fs::*;
 use std::path::PathBuf;
 use std::process::exit;
 
@@ -26,7 +26,7 @@ fn eprint_usage(opts: &Options) -> ! {
     exit(2);
 }
 
-pub fn init_command(args: &[String], verbosity: u8) -> Result<(), Error> {
+pub fn init_command(args: &[String], verbosity: u8) -> Fallible<()> {
     let mut opts = Options::new();
     opts.optflag(
         "f",
@@ -59,21 +59,6 @@ pub fn init_command(args: &[String], verbosity: u8) -> Result<(), Error> {
     }
 
     if verbosity > 0 {
-        eprintln!("Checking for an existing profile file...");
-    }
-
-    if profile_exists() {
-        if matches.opt_present("f") {
-            eprintln!("One does, but --force was given.");
-        } else {
-            return Err(format_err!(
-                "Profile file ({}) already exists!",
-                PROFILE_PATH
-            ));
-        }
-    }
-
-    if verbosity > 0 {
         eprintln!("Checking if the given --root exists...");
     }
 
@@ -94,7 +79,22 @@ pub fn init_command(args: &[String], verbosity: u8) -> Result<(), Error> {
         mods: Default::default(),
     };
 
-    let f = File::create(PROFILE_PATH)?;
+    let mut open_opts = OpenOptions::new();
+    open_opts.write(true);
+    // Only allow the file to be overwritten if --force was given.
+    if matches.opt_present("f") {
+        open_opts.create(true);
+    } else {
+        open_opts.create_new(true);
+    }
+
+    let f = open_opts.open(PROFILE_PATH).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::AlreadyExists {
+            format_err!("A profile file already exists (use --force to overwrite).")
+        } else {
+            failure::Error::from(e)
+        }
+    })?;
     serde_json::to_writer_pretty(f, &p)?;
 
     eprintln!("Profile file written to {}", PROFILE_PATH);
