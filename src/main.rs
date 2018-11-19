@@ -76,14 +76,16 @@ fn do_it() -> Fallible<()> {
         print_usage(&opts);
     }
 
+    let verbosity = matches.opt_count("v");
+    // The +1 is because we want -v to give info, not warn.
+    stderrlog::new().verbosity(verbosity + 1).init()?;
+
     if let Some(chto) = matches.opt_str("C") {
         env::set_current_dir(&chto).map_err(|e| {
             let ctxt = format!("Couldn't set working directory to {}", chto);
             e.context(ctxt)
         })?;
     }
-
-    let verbosity = matches.opt_count("v") as u8;
 
     let mut free_args = matches.free;
 
@@ -100,8 +102,8 @@ fn do_it() -> Fallible<()> {
     }
 
     match free_args[0].as_ref() {
-        "init" => init_command(&free_args[1..], verbosity),
-        "activate" => activate_command(&free_args[1..], verbosity),
+        "init" => init_command(&free_args[1..]),
+        "activate" => activate_command(&free_args[1..]),
         wut => {
             eprintln!("Unknown command: {}", wut);
             eprint_usage(&opts);

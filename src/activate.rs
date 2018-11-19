@@ -3,6 +3,7 @@ use std::path::Path;
 use std::process::exit;
 
 use failure::*;
+use log::*;
 
 use crate::modification::*;
 use crate::profile::*;
@@ -27,7 +28,7 @@ fn eprint_usage() -> ! {
     exit(2);
 }
 
-pub fn activate_command(args: &[String], verbosity: u8) -> Fallible<()> {
+pub fn activate_command(args: &[String]) -> Fallible<()> {
     if args.len() == 1 && args[0] == "help" {
         print_usage();
     }
@@ -36,9 +37,7 @@ pub fn activate_command(args: &[String], verbosity: u8) -> Fallible<()> {
         eprint_usage();
     }
 
-    if verbosity > 0 {
-        eprintln!("Loading profile...");
-    }
+    info!("Loading profile...");
 
     let f = File::open(PROFILE_PATH).map_err(|e| {
         let ctxt = format!("Couldn't open profile file ({})", PROFILE_PATH);
@@ -48,9 +47,7 @@ pub fn activate_command(args: &[String], verbosity: u8) -> Fallible<()> {
     let p: Profile = serde_json::from_reader(f).context("Couldn't parse profile file")?;
 
     for mod_name in args {
-        if verbosity > 0 {
-            eprintln!("Activating {}...", mod_name);
-        }
+        info!("Activating {}...", mod_name);
 
         let mod_path = Path::new(mod_name);
 
@@ -64,24 +61,27 @@ pub fn activate_command(args: &[String], verbosity: u8) -> Fallible<()> {
 
         // Next, look at all the paths we currently have,
         // and make sure the new file doesn't contain any of them.
-        for new_mod_path in m.paths() {
-            if verbosity > 2 {
-                eprintln!(
-                    "Checking {} for conflicts...",
-                    new_mod_path.to_string_lossy()
-                );
-            }
-            for (active_mod_name, active_mod) in &p.mods {
-                if active_mod.files.contains_key(&new_mod_path) {
-                    return Err(format_err!(
-                        "{} would overwrite a file from {}",
-                        new_mod_path.to_string_lossy(),
-                        active_mod_name.to_string_lossy()
-                    ));
-                }
+        check_for_profile_conflicts(&mut *m, &p)?;
+    }
+
+    Ok(())
+}
+
+fn check_for_profile_conflicts(m: &mut dyn Mod, p: &Profile) -> Fallible<()> {
+    for new_mod_path in m.paths() {
+        debug!(
+            "Checking {} for conflicts...",
+            new_mod_path.to_string_lossy()
+        );
+        for (active_mod_name, active_mod) in &p.mods {
+            if active_mod.files.contains_key(&new_mod_path) {
+                return Err(format_err!(
+                    "{} would overwrite a file from {}",
+                    new_mod_path.to_string_lossy(),
+                    active_mod_name.to_string_lossy()
+                ));
             }
         }
     }
-
     Ok(())
 }

@@ -14,11 +14,11 @@ pub type FileHash = [u8; 32];
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Profile {
     pub root_directory: PathBuf,
-    pub mods: BTreeMap<PathBuf, Mod>,
+    pub mods: BTreeMap<PathBuf, ModManifest>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Mod {
+pub struct ModManifest {
     #[serde(
         serialize_with = "serialize_version",
         deserialize_with = "deserialize_version"

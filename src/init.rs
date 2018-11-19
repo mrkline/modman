@@ -3,8 +3,9 @@ use std::fs::*;
 use std::path::PathBuf;
 use std::process::exit;
 
-use failure::*;
 use getopts::Options;
+use failure::*;
+use log::*;
 
 use crate::profile::*;
 
@@ -26,7 +27,7 @@ fn eprint_usage(opts: &Options) -> ! {
     exit(2);
 }
 
-pub fn init_command(args: &[String], verbosity: u8) -> Fallible<()> {
+pub fn init_command(args: &[String]) -> Fallible<()> {
     let mut opts = Options::new();
     opts.optflag(
         "f",
@@ -58,9 +59,7 @@ pub fn init_command(args: &[String], verbosity: u8) -> Fallible<()> {
         eprint_usage(&opts);
     }
 
-    if verbosity > 0 {
-        eprintln!("Checking if the given --root exists...");
-    }
+    info!("Checking if the given --root exists...");
 
     let root_path = PathBuf::from(&matches.opt_str("root").unwrap());
     if !root_path.is_dir() {
@@ -70,9 +69,7 @@ pub fn init_command(args: &[String], verbosity: u8) -> Fallible<()> {
         ));
     }
 
-    if verbosity > 0 {
-        eprintln!("Writing an empty profile file...");
-    }
+    info!("Writing an empty profile file...");
 
     let p = Profile {
         root_directory: root_path,
