@@ -68,11 +68,8 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
 }
 
 fn check_for_profile_conflicts(m: &mut dyn Mod, p: &Profile) -> Fallible<()> {
-    for new_mod_path in m.paths() {
-        debug!(
-            "Checking {} for conflicts...",
-            new_mod_path.to_string_lossy()
-        );
+    for new_mod_path in m.paths()? {
+        debug!("{}", new_mod_path.to_string_lossy());
         for (active_mod_name, active_mod) in &p.mods {
             if active_mod.files.contains_key(&new_mod_path) {
                 return Err(format_err!(

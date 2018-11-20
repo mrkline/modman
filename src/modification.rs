@@ -1,5 +1,4 @@
 use std::fs::metadata;
-use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 
 use failure::*;
@@ -7,8 +6,7 @@ use failure::*;
 use crate::zip_mod::*;
 
 pub trait Mod {
-    // 'a ensures that the iterator we return doesn't outlive the mod.
-    fn paths<'a>(&'a mut self) -> Box<dyn Iterator<Item = PathBuf> + 'a>;
+    fn paths(&mut self) -> Fallible<Vec<PathBuf>>;
 }
 
 pub fn open_mod(p: &Path) -> Fallible<Box<dyn Mod>> {

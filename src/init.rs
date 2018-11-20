@@ -3,8 +3,8 @@ use std::fs::*;
 use std::path::PathBuf;
 use std::process::exit;
 
-use getopts::Options;
 use failure::*;
+use getopts::Options;
 use log::*;
 
 use crate::profile::*;

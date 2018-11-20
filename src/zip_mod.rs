@@ -3,7 +3,8 @@ use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use failure::*;
-use zip::read::ZipArchive;
+use zip::read::{ZipArchive, ZipFile};
+use zip::result::ZipResult;
 
 use crate::modification::Mod;
 
@@ -36,12 +37,35 @@ impl ZipMod {
 }
 
 impl Mod for ZipMod {
-    fn paths<'a>(&'a mut self) -> Box<dyn Iterator<Item = PathBuf> + 'a> {
+    fn paths(&mut self) -> Fallible<Vec<PathBuf>> {
         // Chain some iterators to pull the paths out of the zip file.
-        // Take indexes 0 through the length, then map those to
-        // ZipArchive::by_index() calls. We won't be out of bounds,
-        // so unwrap that (right? or could that fail for I/O reasons?),
-        // then pull out the name.
-        Box::new((0..self.z.len()).map(move |idx| self.z.by_index(idx).unwrap().sanitized_name()))
+        (0..self.z.len())
+            .filter_map(|idx| {
+                let zip_result = self.z.by_index(idx);
+                filter_map_zip_file(zip_result)
+            })
+            .collect::<ZipResult<Vec<PathBuf>>>()
+            .map_err(Error::from)
     }
+}
+
+// Converts ZipFile to its path, filtering out directories.
+fn filter_map_zip_file(r: ZipResult<ZipFile>) -> Option<ZipResult<PathBuf>> {
+    // If the ZipResult was an error, return that.
+    // We user .err().unwrap() instead of unwrap_err() because apparently
+    // ZipFile doesn't implement Debug, which unwrap_err() wants when it panics.
+    if r.is_err() {
+        return Some(Err(r.err().unwrap()));
+    }
+
+    let zip_file = r.unwrap();
+    // The zip crate seems to give us no way to differentiate between
+    // a directory and a file in the ZIP archive except by looking at mode bits.
+    // For directories, it always seems to set S_IFDIR, i.e., o40000.
+    if let Some(mode_bits) = zip_file.unix_mode() {
+        if (mode_bits & 0o40000) != 0 {
+            return None;
+        }
+    }
+    Some(Ok(zip_file.sanitized_name()))
 }
