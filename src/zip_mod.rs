@@ -1,23 +1,25 @@
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use failure::*;
+use memmap::Mmap;
 use zip::read::{ZipArchive, ZipFile};
 use zip::result::ZipResult;
 
 use crate::modification::Mod;
 
 pub struct ZipMod {
-    z: ZipArchive<BufReader<File>>,
+    z: ZipArchive<std::io::Cursor<Mmap>>,
 }
 
 impl ZipMod {
     pub fn new<P: AsRef<Path>>(path: P) -> Fallible<Self> {
-        let f = File::open(path)?;
-        let br = BufReader::new(f);
-        let mut z = ZipArchive::new(br)?;
+        let file = File::open(path)?;
+        // We'll be doing lots of seeking, so let's memory map the file
+        // to save on all the read calls we'd do otherwise.
+        let mmap = unsafe { Mmap::map(&file)? };
+        let mut z = ZipArchive::new(std::io::Cursor::new(mmap))?;
 
         // TODO: Parse and examine
         z.by_name("VERSION.txt")
