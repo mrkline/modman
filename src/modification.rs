@@ -1,4 +1,5 @@
 use std::fs::metadata;
+use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
 use failure::*;
@@ -6,7 +7,16 @@ use failure::*;
 use crate::zip_mod::*;
 
 pub trait Mod {
+    /// Returns a vector of the mod files' paths, with the base directory
+    /// stripped away (TODO).
+    ///
+    /// Originally this was going to return an iterator,
+    /// but ownership becomes very tricky when working with ZIP archives,
+    /// since the zip crate's ZipArchive needs mutability to seek around
+    /// the underlying file.
     fn paths(&mut self) -> Fallible<Vec<PathBuf>>;
+
+    fn read_file<'a>(&'a mut self, p: &Path) -> Fallible<Box<dyn Read + 'a>>;
 }
 
 pub fn open_mod(p: &Path) -> Fallible<Box<dyn Mod>> {

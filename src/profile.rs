@@ -4,12 +4,13 @@ use std::path::PathBuf;
 
 use semver::Version;
 use serde_derive::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::version_serde::*;
 
 pub static PROFILE_PATH: &str = "modman.profile";
 
-pub type FileHash = [u8; 32];
+pub type FileHash = generic_array::GenericArray<u8, <Sha256 as Digest>::OutputSize>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Profile {

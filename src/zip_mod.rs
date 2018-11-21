@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
@@ -46,6 +47,11 @@ impl Mod for ZipMod {
             })
             .collect::<ZipResult<Vec<PathBuf>>>()
             .map_err(Error::from)
+    }
+
+    fn read_file<'a>(&'a mut self, p: &Path) -> Fallible<Box<dyn Read + 'a>> {
+        let r = self.z.by_name(&p.to_string_lossy())?;
+        Ok(Box::new(r))
     }
 }
 
