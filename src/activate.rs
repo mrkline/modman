@@ -80,7 +80,7 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
     Ok(())
 }
 
-fn check_for_profile_conflicts(mod_file_paths: &Vec<PathBuf>, p: &Profile) -> Fallible<()> {
+fn check_for_profile_conflicts(mod_file_paths: &[PathBuf], p: &Profile) -> Fallible<()> {
     for mod_file_path in mod_file_paths {
         for (active_mod_name, active_mod) in &p.mods {
             if active_mod.files.contains_key(mod_file_path.as_path()) {
@@ -111,7 +111,7 @@ fn hash_and_temp<R: BufRead>(mut reader: R) -> Fallible<HashAndTempCopy> {
             if slice.is_empty() {
                 break;
             }
-            temp_copy.write(slice)?;
+            temp_copy.write_all(slice)?;
             hasher.input(slice);
             slice.len()
         };
