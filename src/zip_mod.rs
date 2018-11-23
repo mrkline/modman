@@ -97,7 +97,7 @@ fn extract_base_directory(paths: &mut [PathBuf]) -> Fallible<PathBuf> {
     let mut base_dir = PathBuf::new();
     for path in paths.iter() {
         if let Some(Component::Normal(base)) = path.components().next() {
-            if base_dir.to_string_lossy().is_empty() {
+            if base_dir.as_os_str().is_empty() {
                 base_dir = Path::new(base).to_owned();
             } else if base_dir != base {
                 return Err(format_err!(
@@ -110,7 +110,7 @@ fn extract_base_directory(paths: &mut [PathBuf]) -> Fallible<PathBuf> {
             return Err(format_err!("An empty path was found."));
         }
     }
-    assert!(!base_dir.to_string_lossy().is_empty());
+    assert!(!base_dir.as_os_str().is_empty());
     remove_base_directory(paths, &base_dir)?;
     Ok(base_dir)
 }
