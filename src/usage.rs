@@ -11,4 +11,3 @@ pub fn eprint_usage(usage: &str, opts: &Options) -> ! {
     eprintln!("{}", opts.usage(usage));
     exit(2);
 }
-

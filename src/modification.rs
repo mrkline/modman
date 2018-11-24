@@ -3,6 +3,7 @@ use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
 use failure::*;
+use semver::Version;
 
 use crate::zip_mod::*;
 
@@ -17,6 +18,8 @@ pub trait Mod {
     fn paths(&mut self) -> Fallible<Vec<PathBuf>>;
 
     fn read_file<'a>(&'a mut self, p: &Path) -> Fallible<Box<dyn Read + 'a>>;
+
+    fn version(&self) -> &Version;
 }
 
 pub fn open_mod(p: &Path) -> Fallible<Box<dyn Mod>> {

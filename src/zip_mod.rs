@@ -4,6 +4,7 @@ use std::path::*;
 
 use failure::*;
 use memmap::Mmap;
+use semver::Version;
 use zip::read::{ZipArchive, ZipFile};
 use zip::result::ZipResult;
 
@@ -19,6 +20,8 @@ pub struct ZipMod {
     /// Since we need to collect file paths to pull out a base directory,
     /// ZipMod::new() will cache them for the first caller to paths().
     cached_paths: Vec<PathBuf>,
+
+    v: Version,
 }
 
 impl ZipMod {
@@ -29,9 +32,11 @@ impl ZipMod {
         let mmap = unsafe { Mmap::map(&file)? };
         let mut z = ZipArchive::new(std::io::Cursor::new(mmap))?;
 
-        // TODO: Parse and examine
+        let mut version_string = String::new();
         z.by_name("VERSION.txt")
-            .context("Couldn't find VERSION.txt")?;
+            .context("Couldn't find VERSION.txt")?
+            .read_to_string(&mut version_string)?;
+        let v = Version::parse(&version_string).context("Couldn't parse version string")?;
 
         // TODO: Should we demand that it contain something?
         z.by_name("README.txt")
@@ -45,6 +50,7 @@ impl ZipMod {
             z,
             base_dir,
             cached_paths,
+            v,
         })
     }
 }
@@ -73,6 +79,10 @@ impl Mod for ZipMod {
             .by_name(&(self.base_dir.join(p)).to_string_lossy())
             .map_err(|e| e.context(format!("Couldn't extract {}", p.to_string_lossy())))?;
         Ok(Box::new(r))
+    }
+
+    fn version(&self) -> &Version {
+        &self.v
     }
 }
 

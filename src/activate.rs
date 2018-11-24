@@ -1,3 +1,4 @@
+use std::collections::*;
 use std::fs::*;
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -23,8 +24,11 @@ Mods can be in two formats:
 
 pub fn activate_command(args: &[String]) -> Fallible<()> {
     let mut opts = getopts::Options::new();
-    opts.optflag("n", "dry-run",
-        "Instead of actually activating the mod, print the actions `modman activate` would take.");
+    opts.optflag(
+        "n",
+        "dry-run",
+        "Instead of actually activating the mod, print the actions `modman activate` would take.",
+    );
 
     if args.len() == 1 && args[0] == "help" {
         print_usage(USAGE, &opts);
@@ -49,10 +53,14 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
     let f = File::open(PROFILE_PATH)
         .map_err(|e| e.context(format!("Couldn't open profile file ({})", PROFILE_PATH)))?;
 
-    let p: Profile = serde_json::from_reader(f).context("Couldn't parse profile file")?;
+    let mut p: Profile = serde_json::from_reader(f).context("Couldn't parse profile file")?;
     sanity_check_profile(&p)?;
 
-    for mod_name in &matches.free {
+    // Just for dry run reporting at the end
+    let mut new_paths = Vec::<PathBuf>::new();
+    let mut backed_up_paths = Vec::<PathBuf>::new();
+
+    for mod_name in matches.free {
         info!("Activating {}...", mod_name);
 
         let mod_path = Path::new(&mod_name);
@@ -89,14 +97,48 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
         // their backups.
         // We should then be able to restore those later.
 
+        let mut manifest = ModManifest {
+            version: m.version().clone(),
+            files: BTreeMap::new(),
+        };
+
         for mod_file_path in &mod_file_paths {
-            let hash: Option<FileHash> = try_hash_and_backup(&mod_file_path, &p, dry_run)?;
-
+            let original_hash: Option<FileHash> = try_hash_and_backup(&mod_file_path, &p, dry_run)?;
+            if dry_run {
+                if original_hash.is_some() {
+                    backed_up_paths.push(mod_file_path.clone());
+                } else {
+                    new_paths.push(mod_file_path.clone());
+                }
+            }
             // TODO: The real deal. Write the mod file into the game directory.
-        }
-        // TODO break the above into functions.
+            let mod_hash = hash_file(&mut BufReader::new(m.read_file(mod_file_path)?))?;
 
-        // TODO Add to profile
+            let meta = ModFileMetadata {
+                mod_hash,
+                original_hash,
+            };
+
+            manifest.files.insert(mod_file_path.clone(), meta);
+        }
+
+        p.mods.insert(PathBuf::from(mod_name), manifest);
+
+        if dry_run {
+            println!("Files to be added:");
+            for path in &new_paths {
+                println!("\t{}", path.to_string_lossy());
+            }
+
+            println!("Files to be replaced:");
+            for path in &backed_up_paths {
+                println!("\t{}", path.to_string_lossy());
+            }
+
+            println!("New profile file:");
+            serde_json::ser::to_writer_pretty(std::io::stdout().lock(), &p)
+                .context("Couldn't serialize profile to JSON")?;
+        }
     }
 
     Ok(())
@@ -135,7 +177,10 @@ fn try_hash_and_backup(
         Err(open_err) => {
             // If there's no file there, great. Less work for us.
             if open_err.kind() == std::io::ErrorKind::NotFound {
-                debug!("{} doesn't exist, no need for backup.", game_file_path.to_string_lossy());
+                debug!(
+                    "{} doesn't exist, no need for backup.",
+                    game_file_path.to_string_lossy()
+                );
                 Ok(None)
             }
             // If open() gave a different error, cough that up.
