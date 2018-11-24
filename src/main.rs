@@ -8,11 +8,13 @@ mod activate;
 mod init;
 mod modification;
 mod profile;
+mod usage;
 mod version_serde;
 mod zip_mod;
 
 use crate::activate::*;
 use crate::init::*;
+use crate::usage::*;
 
 static USAGE: &str = r#"
 Usage: modman [options] <command> [command options]
@@ -36,16 +38,6 @@ Usage: modman [options] <command> [command options]
           or both.
 "#;
 
-fn print_usage(opts: &Options) -> ! {
-    println!("{}", opts.usage(USAGE));
-    exit(0);
-}
-
-fn eprint_usage(opts: &Options) -> ! {
-    eprintln!("{}", opts.usage(USAGE));
-    exit(2);
-}
-
 fn do_it() -> Fallible<()> {
     let args: Vec<String> = env::args().collect();
 
@@ -68,12 +60,12 @@ fn do_it() -> Fallible<()> {
         Ok(m) => m,
         Err(f) => {
             eprintln!("{}", f.to_string());
-            eprint_usage(&opts);
+            eprint_usage(USAGE, &opts);
         }
     };
 
     if matches.free.len() == 1 && matches.free[0] == "help" {
-        print_usage(&opts);
+        print_usage(USAGE, &opts);
     }
 
     let verbosity = matches.opt_count("v");
@@ -81,16 +73,15 @@ fn do_it() -> Fallible<()> {
     stderrlog::new().verbosity(verbosity + 1).init()?;
 
     if let Some(chto) = matches.opt_str("C") {
-        env::set_current_dir(&chto).map_err(|e| {
-            e.context(format!("Couldn't set working directory to {}", chto))
-        })?;
+        env::set_current_dir(&chto)
+            .map_err(|e| e.context(format!("Couldn't set working directory to {}", chto)))?;
     }
 
     let mut free_args = matches.free;
 
     if free_args.is_empty() {
         eprintln!("Please give a command.");
-        eprint_usage(&opts);
+        eprint_usage(USAGE, &opts);
     }
 
     // If the user passed multiple args (see above),
@@ -105,7 +96,7 @@ fn do_it() -> Fallible<()> {
         "activate" => activate_command(&free_args[1..]),
         wut => {
             eprintln!("Unknown command: {}", wut);
-            eprint_usage(&opts);
+            eprint_usage(USAGE, &opts);
         }
     }
 }

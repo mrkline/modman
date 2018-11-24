@@ -2,7 +2,6 @@ use std::fs::*;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
-use std::process::exit;
 
 use failure::*;
 use log::*;
@@ -10,6 +9,7 @@ use sha2::*;
 
 use crate::modification::*;
 use crate::profile::*;
+use crate::usage::*;
 
 static USAGE: &str = r#"
 Usage: modman activate [options] <MOD>
@@ -21,24 +21,28 @@ Mods can be in two formats:
   2. A .zip archive containing the same.
 "#;
 
-fn print_usage() -> ! {
-    println!("{}", USAGE);
-    exit(0);
-}
-
-fn eprint_usage() -> ! {
-    eprintln!("{}", USAGE);
-    exit(2);
-}
-
 pub fn activate_command(args: &[String]) -> Fallible<()> {
+    let mut opts = getopts::Options::new();
+    opts.optflag("n", "dry-run",
+        "Instead of actually activating the mod, print the actions `modman activate` would take.");
+
     if args.len() == 1 && args[0] == "help" {
-        print_usage();
+        print_usage(USAGE, &opts);
     }
 
-    if args.is_empty() {
-        eprint_usage();
+    let matches = match opts.parse(args) {
+        Ok(m) => m,
+        Err(f) => {
+            eprintln!("{}", f.to_string());
+            eprint_usage(USAGE, &opts);
+        }
+    };
+
+    if matches.free.is_empty() {
+        eprint_usage(USAGE, &opts);
     }
+
+    let dry_run = matches.opt_present("n");
 
     info!("Loading profile...");
 
@@ -46,11 +50,12 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
         .map_err(|e| e.context(format!("Couldn't open profile file ({})", PROFILE_PATH)))?;
 
     let p: Profile = serde_json::from_reader(f).context("Couldn't parse profile file")?;
+    sanity_check_profile(&p)?;
 
-    for mod_name in args {
+    for mod_name in &matches.free {
         info!("Activating {}...", mod_name);
 
-        let mod_path = Path::new(mod_name);
+        let mod_path = Path::new(&mod_name);
 
         // First sanity check: we haven't already added this mod.
         if p.mods.contains_key(mod_path) {
@@ -85,66 +90,7 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
         // We should then be able to restore those later.
 
         for mod_file_path in &mod_file_paths {
-            // First, make a backup to a temporary file.
-            let mut br = BufReader::new(m.read_file(mod_file_path)?);
-            let hnt = hash_and_write_temporary(&mut br, &mod_file_path)?;
-            hnt.temp_file.sync_data()?;
-            drop(hnt.temp_file); // Close the temp file
-
-            let temp_file_path = hnt.temp_file_path;
-
-            // Next, create any needed directory structure.
-            let mut mod_file_dir = PathBuf::from(BACKUP_PATH);
-            if let Some(parent) = mod_file_path.parent() {
-                mod_file_dir.push(parent);
-            }
-            create_dir_all(&mod_file_dir).map_err(|e| {
-                e.context(format!(
-                    "Couldn't create directory {}",
-                    mod_file_dir.to_string_lossy()
-                ))
-            })?;
-
-            let backup_path = mod_file_dir.join(mod_file_path.file_name().unwrap());
-
-            // Fail if the file already exists.
-            // (This is a good sign that a previous run was interrupted
-            // and the user should try to restore the backed up files.)
-            //
-            // stat() then rename() seems like a classic TOCTOU blunder
-            // (https://en.wikipedia.org/wiki/Time_of_check_to_time_of_use),
-            // but:
-            //
-            // 1. If someone comes in and replaces the contents of
-            //    backup_path between this next line and the rename() call,
-            //    it's safe to assume that the data in there is gone anyways.
-            //
-            // 2. Rust (and even POSIX, for that matter) doesn't provide a
-            //    cross-platform approach to fail a rename if the destination
-            //    already exists, so we'd have to write OS-specific code for
-            //    Linux, Windows, and <other POSIX friends>.
-            if backup_path.exists() {
-                // TODO: Offer corrective action once `modman rescue`
-                // or whatever we want to call it exists.
-                return Err(format_err!(
-                    "{} already exists (was `modman activate` previously interrupted?)",
-                    backup_path.to_string_lossy()
-                ));
-            }
-
-            debug!(
-                "Moving {} to {}",
-                temp_file_path.to_string_lossy(),
-                backup_path.to_string_lossy(),
-            );
-
-            rename(&temp_file_path, &backup_path).map_err(|e| {
-                e.context(format!(
-                    "Couldn't rename {} to {}",
-                    temp_file_path.to_string_lossy(),
-                    backup_path.to_string_lossy()
-                ))
-            })?;
+            let hash: Option<FileHash> = try_hash_and_backup(&mod_file_path, &p, dry_run)?;
 
             // TODO: The real deal. Write the mod file into the game directory.
         }
@@ -173,26 +119,151 @@ fn check_for_profile_conflicts(mod_file_paths: &[PathBuf], p: &Profile) -> Falli
     Ok(())
 }
 
-struct HashedFile {
-    pub hash: FileHash,
-    pub temp_file: File,
-    pub temp_file_path: PathBuf,
+/// Given a mod file's path, back up the game file if one exists.
+/// Returns the hash of the game file, or None if no file existed at that path.
+/// If dry_run is set, just hash and don't actually backup.
+fn try_hash_and_backup(
+    mod_file_path: &Path,
+    p: &Profile,
+    dry_run: bool,
+) -> Fallible<Option<FileHash>> {
+    let game_file_path = mod_path_to_game_path(mod_file_path, &p);
+
+    // Try to open a file in the game directory at mod_file_path,
+    // to see if it exists.
+    match File::open(&game_file_path) {
+        Err(open_err) => {
+            // If there's no file there, great. Less work for us.
+            if open_err.kind() == std::io::ErrorKind::NotFound {
+                debug!("{} doesn't exist, no need for backup.", game_file_path.to_string_lossy());
+                Ok(None)
+            }
+            // If open() gave a different error, cough that up.
+            else {
+                Err(Error::from(open_err.context(format!(
+                    "Couldn't open {}",
+                    game_file_path.to_string_lossy()
+                ))))
+            }
+        }
+        Ok(game_file) => {
+            let mut br = BufReader::new(game_file);
+
+            let hash = if !dry_run {
+                hash_and_backup(mod_file_path, &mut br)
+            } else {
+                hash_file(&mut br)
+            }?;
+            trace!("{} hashed to {:x}", mod_file_path.to_string_lossy(), hash);
+            Ok(Some(hash))
+        }
+    }
 }
 
-fn hash_and_write_temporary<R: BufRead, P: AsRef<Path>>(
-    mut reader: R,
-    path: P,
-) -> Fallible<HashedFile> {
-    // We're unwrapping that path has a final path component (i.e., a file name.)
-    // Very strange things are happening if it doesn't...
-    let mut temp_filename: std::ffi::OsString = path.as_ref().file_name().unwrap().to_owned();
-    temp_filename.push(".part");
+/// Given a mod file's path and a reader of the game file it's replacing,
+/// backup said game file and return its hash.
+fn hash_and_backup<R: BufRead>(mod_file_path: &Path, reader: &mut R) -> Fallible<FileHash> {
+    // First, copy the file to a temporary location, hashing it as we go.
+    let hnt = hash_and_write_temporary(mod_file_path, reader)?;
 
-    let temp_file_path = Path::new(TEMPDIR_PATH).join(temp_filename);
+    let temp_file_path = hnt.temp_file_path;
+
+    // Next, create any needed directory structure.
+    let mut backup_file_dir = PathBuf::from(BACKUP_PATH);
+    if let Some(parent) = mod_file_path.parent() {
+        backup_file_dir.push(parent);
+    }
+    create_dir_all(&backup_file_dir).map_err(|e| {
+        e.context(format!(
+            "Couldn't create directory {}",
+            backup_file_dir.to_string_lossy()
+        ))
+    })?;
+
+    let backup_path = backup_file_dir.join(mod_file_path.file_name().unwrap());
+    debug_assert!(backup_path == mod_path_to_backup_path(mod_file_path));
+
+    // Fail if the file already exists.
+    // (This is a good sign that a previous run was interrupted
+    // and the user should try to restore the backed up files.)
+    //
+    // stat() then rename() seems like a classic TOCTOU blunder
+    // (https://en.wikipedia.org/wiki/Time_of_check_to_time_of_use),
+    // but:
+    //
+    // 1. If someone comes in and replaces the contents of
+    //    backup_path between this next line and the rename() call,
+    //    it's safe to assume that the data in there is gone anyways.
+    //
+    // 2. Rust (and even POSIX, for that matter) doesn't provide a
+    //    cross-platform approach to fail a rename if the destination
+    //    already exists, so we'd have to write OS-specific code for
+    //    Linux, Windows, and <other POSIX friends>.
+    if backup_path.exists() {
+        // TODO: Offer corrective action once `modman rescue`
+        // or whatever we want to call it exists.
+        return Err(format_err!(
+            "{} already exists (was `modman activate` previously interrupted?)",
+            backup_path.to_string_lossy()
+        ));
+    }
+
+    debug!(
+        "Moving {} to {}",
+        temp_file_path.to_string_lossy(),
+        backup_path.to_string_lossy(),
+    );
+
+    // Move the backup from the temporary location to its final spot
+    // in the backup directory.
+    rename(&temp_file_path, &backup_path).map_err(|e| {
+        e.context(format!(
+            "Couldn't rename {} to {}",
+            temp_file_path.to_string_lossy(),
+            backup_path.to_string_lossy()
+        ))
+    })?;
+
+    Ok(hnt.hash)
+}
+
+/// Hash data from the given buffered reader.
+/// Used for dry runs where we want to compute hashes but skip backups.
+/// (See hash_and_backup() for the real deal.)
+fn hash_file<R: BufRead>(reader: &mut R) -> Fallible<FileHash> {
+    let mut hasher = Sha256::new();
+    loop {
+        let slice_length = {
+            let slice = reader.fill_buf()?;
+            if slice.is_empty() {
+                break;
+            }
+            hasher.input(slice);
+            slice.len()
+        };
+        reader.consume(slice_length);
+    }
+
+    Ok(hasher.result())
+}
+
+struct HashedFile {
+    hash: FileHash,
+    temp_file_path: PathBuf,
+}
+
+/// Given a mod file's path and a buffered reader of the game file it's replacing,
+/// copy the game file to our temp directory,
+/// then return its hash and the temp path.
+fn hash_and_write_temporary<R: BufRead>(
+    mod_file_path: &Path,
+    reader: &mut R,
+) -> Fallible<HashedFile> {
+    let temp_file_path = mod_path_to_temp_path(mod_file_path);
 
     debug!(
         "Copying {} to {}",
-        path.as_ref().to_string_lossy(),
+        mod_file_path.to_string_lossy(),
         temp_file_path.to_string_lossy()
     );
 
@@ -219,13 +290,14 @@ fn hash_and_write_temporary<R: BufRead, P: AsRef<Path>>(
         reader.consume(slice_length);
     }
 
-    let hash = hasher.result();
+    // sync() is a dirty lie on modern OSes and drives,
+    // but do what we can to make sure the data actually made it to disk.
+    temp_file.sync_data()?;
 
-    trace!("{} hashed to {:x}", temp_file_path.to_string_lossy(), hash);
+    let hash = hasher.result();
 
     Ok(HashedFile {
         hash,
-        temp_file,
         temp_file_path,
     })
 }

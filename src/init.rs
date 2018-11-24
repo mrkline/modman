@@ -2,30 +2,18 @@ use std::default::Default;
 use std::fs::*;
 use std::io::prelude::*;
 use std::path::PathBuf;
-use std::process::exit;
 
 use failure::*;
 use getopts::Options;
 use log::*;
 
 use crate::profile::*;
+use crate::usage::*;
 
 static USAGE: &str = r#"Usage: modman init [options]
 
 Create a new mod configuration file in this directory (or the one given with -C).
 The file will be named"#;
-
-fn print_usage(opts: &Options) -> ! {
-    let help = format!("{} {}", USAGE, PROFILE_PATH);
-    println!("{}", opts.usage(&help));
-    exit(0);
-}
-
-fn eprint_usage(opts: &Options) -> ! {
-    let help = format!("{} {}", USAGE, PROFILE_PATH);
-    eprintln!("{}", opts.usage(&help));
-    exit(2);
-}
 
 pub fn init_command(args: &[String]) -> Fallible<()> {
     let mut opts = Options::new();
@@ -37,21 +25,21 @@ pub fn init_command(args: &[String]) -> Fallible<()> {
     );
 
     if args.len() == 1 && args[0] == "help" {
-        print_usage(&opts);
+        print_usage(USAGE, &opts);
     }
 
     let matches = match opts.parse(args) {
         Ok(m) => m,
         Err(f) => {
             eprintln!("{}", f.to_string());
-            eprint_usage(&opts);
+            eprint_usage(USAGE, &opts);
         }
     };
 
     let free_args = &matches.free;
 
     if !free_args.is_empty() {
-        eprint_usage(&opts);
+        eprint_usage(USAGE, &opts);
     }
 
     debug!("Checking if the given --root exists...");
@@ -79,7 +67,7 @@ pub fn init_command(args: &[String]) -> Fallible<()> {
             if e.kind() == std::io::ErrorKind::AlreadyExists {
                 format_err!("A profile already exists.")
             } else {
-                failure::Error::from(e)
+                Error::from(e)
             }
         })?;
     serde_json::to_writer_pretty(f, &p)?;
@@ -99,7 +87,7 @@ pub fn init_command(args: &[String]) -> Fallible<()> {
                 STORAGE_PATH
             ));
         } else {
-            return Err(failure::Error::from(mkdir_err));
+            return Err(Error::from(mkdir_err));
         }
     }
 

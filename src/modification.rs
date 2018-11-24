@@ -21,14 +21,12 @@ pub trait Mod {
 
 pub fn open_mod(p: &Path) -> Fallible<Box<dyn Mod>> {
     // Alright, let's stat the thing:
-    let stat = metadata(p).map_err(|e| {
-        e.context(format!("Couldn't find {}", p.to_string_lossy()))
-    })?;
+    let stat =
+        metadata(p).map_err(|e| e.context(format!("Couldn't find {}", p.to_string_lossy())))?;
 
     if stat.is_file() {
-        let z = ZipMod::new(p).map_err(|e| {
-            e.context(format!("Trouble reading {}", p.to_string_lossy()))
-        })?;
+        let z = ZipMod::new(p)
+            .map_err(|e| e.context(format!("Trouble reading {}", p.to_string_lossy())))?;
         Ok(Box::new(z))
     } else {
         panic!("Directory mods aren't implemented yet.");

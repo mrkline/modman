@@ -1,6 +1,6 @@
 use std::collections::*;
 use std::default::Default;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use semver::Version;
 use serde_derive::{Deserialize, Serialize};
@@ -58,4 +58,40 @@ impl Default for Meta {
 pub struct ProfileFileData {
     pub profile: Profile,
     pub meta: Meta,
+}
+
+pub fn sanity_check_profile(profile: &Profile) -> failure::Fallible<()> {
+    if !profile.root_directory.exists() {
+        return Err(failure::format_err!(
+            "The root directory {} doesn't exist!\n\
+             Has it moved since you ran `modman init`?",
+            profile.root_directory.to_string_lossy()
+        ));
+    }
+
+    Ok(())
+}
+
+/// Given a relative mod file path,
+/// return its game file path, i.e., it appended to the profile's root directory.
+pub fn mod_path_to_game_path(mod_path: &Path, profile: &Profile) -> PathBuf {
+    profile.root_directory.join(mod_path)
+}
+
+/// Given a relative mod file path,
+/// return its backup path, i.e., it appended to our backup directory.
+pub fn mod_path_to_backup_path(mod_path: &Path) -> PathBuf {
+    Path::new(BACKUP_PATH).join(mod_path)
+}
+
+/// Given a relative mod file path,
+/// return its temporary path, i.e.,
+/// its file name appended to our temp directory,
+/// with a `.part` suffix.
+pub fn mod_path_to_temp_path(mod_path: &Path) -> PathBuf {
+    // We're unwrapping that path has a final path component (i.e., a file name.)
+    // Very strange things are happening if it doesn't...
+    let mut temp_filename: std::ffi::OsString = mod_path.file_name().unwrap().to_owned();
+    temp_filename.push(".part");
+    Path::new(TEMPDIR_PATH).join(temp_filename)
 }
