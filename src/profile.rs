@@ -1,6 +1,7 @@
 use std::collections::*;
 use std::default::Default;
 use std::path::{Path, PathBuf};
+use std::rc::*;
 
 use semver::Version;
 use serde_derive::{Deserialize, Serialize};
@@ -31,7 +32,9 @@ pub struct ModManifest {
         deserialize_with = "deserialize_version"
     )]
     pub version: Version,
-    pub files: BTreeMap<PathBuf, ModFileMetadata>,
+    // Use an Rc<PathBuf> because we'll do plenty of copying file paths around.
+    // Rc<Path> would be even better, but serde doesn't like unsized things.
+    pub files: BTreeMap<Rc<PathBuf>, ModFileMetadata>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

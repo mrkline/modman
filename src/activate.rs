@@ -3,6 +3,7 @@ use std::fs::*;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
+use std::rc::*;
 
 use failure::*;
 use log::*;
@@ -57,8 +58,8 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
     sanity_check_profile(&p)?;
 
     // Just for dry run reporting at the end
-    let mut new_paths = Vec::<PathBuf>::new();
-    let mut backed_up_paths = Vec::<PathBuf>::new();
+    let mut new_paths = Vec::<Rc<PathBuf>>::new();
+    let mut backed_up_paths = Vec::<Rc<PathBuf>>::new();
 
     for mod_name in matches.free {
         info!("Activating {}...", mod_name);
@@ -102,8 +103,16 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
             files: BTreeMap::new(),
         };
 
-        for mod_file_path in &mod_file_paths {
-            let original_hash: Option<FileHash> = try_hash_and_backup(&mod_file_path, &p, dry_run)?;
+        for mod_file_path in mod_file_paths {
+            let mod_file_path = Rc::new(mod_file_path);
+
+            let original_hash: Option<FileHash> =
+                try_hash_and_backup(&*mod_file_path, &p, dry_run)?;
+
+            let mod_hash = hash_file(&mut BufReader::new(m.read_file(&*mod_file_path)?))?;
+
+            // TODO: The real deal. Write the mod file into the game directory.
+
             if dry_run {
                 if original_hash.is_some() {
                     backed_up_paths.push(mod_file_path.clone());
@@ -111,15 +120,13 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
                     new_paths.push(mod_file_path.clone());
                 }
             }
-            // TODO: The real deal. Write the mod file into the game directory.
-            let mod_hash = hash_file(&mut BufReader::new(m.read_file(mod_file_path)?))?;
 
             let meta = ModFileMetadata {
                 mod_hash,
                 original_hash,
             };
 
-            manifest.files.insert(mod_file_path.clone(), meta);
+            manifest.files.insert(mod_file_path, meta);
         }
 
         p.mods.insert(PathBuf::from(mod_name), manifest);
@@ -149,7 +156,7 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
 fn check_for_profile_conflicts(mod_file_paths: &[PathBuf], p: &Profile) -> Fallible<()> {
     for mod_file_path in mod_file_paths {
         for (active_mod_name, active_mod) in &p.mods {
-            if active_mod.files.contains_key(mod_file_path.as_path()) {
+            if active_mod.files.contains_key(&*mod_file_path) {
                 return Err(format_err!(
                     "{} would overwrite a file from {}",
                     mod_file_path.to_string_lossy(),
