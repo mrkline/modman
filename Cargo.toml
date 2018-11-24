@@ -13,7 +13,6 @@ getopts = "0.2"
 sha2 = "0.8"
 semver = "0.9"
 zip = "0.4"
-tempfile = "3.0"
 log = "0.4"
 stderrlog = "0.4"
 generic-array = { version = "0.12", features = ["serde"] }

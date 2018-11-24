@@ -10,6 +10,12 @@ use crate::version_serde::*;
 
 pub static PROFILE_PATH: &str = "modman.profile";
 
+// Directories for persisting the files that modman is replacing.
+pub static STORAGE_PATH: &str = "modman-backup";
+pub static BACKUP_README: &str = "modman-backup/README.txt";
+pub static TEMPDIR_PATH: &str = "modman-backup/temp";
+pub static BACKUP_PATH: &str = "modman-backup/backup";
+
 pub type FileHash = generic_array::GenericArray<u8, <Sha256 as Digest>::OutputSize>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

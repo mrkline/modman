@@ -82,8 +82,7 @@ fn do_it() -> Fallible<()> {
 
     if let Some(chto) = matches.opt_str("C") {
         env::set_current_dir(&chto).map_err(|e| {
-            let ctxt = format!("Couldn't set working directory to {}", chto);
-            e.context(ctxt)
+            e.context(format!("Couldn't set working directory to {}", chto))
         })?;
     }
 

@@ -68,14 +68,18 @@ impl Mod for ZipMod {
     }
 
     fn read_file<'a>(&'a mut self, p: &Path) -> Fallible<Box<dyn Read + 'a>> {
-        let r = self.z.by_name(&(self.base_dir.join(p)).to_string_lossy()).map_err(|e| {
-            let ctxt = format!("Couldn't extract {}", p.to_string_lossy());
-            e.context(ctxt)
-        })?;
+        let r = self
+            .z
+            .by_name(&(self.base_dir.join(p)).to_string_lossy())
+            .map_err(|e| {
+                e.context(format!("Couldn't extract {}", p.to_string_lossy()))
+            })?;
         Ok(Box::new(r))
     }
 }
 
+/// Returns the paths of all files in the zip archive,
+/// except for mod metadata (version and readme)
 fn collect_file_paths<R: Read + Seek>(z: &mut ZipArchive<R>) -> Fallible<Vec<PathBuf>> {
     // Chain some iterators to pull the paths out of the zip file.
     (0..z.len())
@@ -89,10 +93,13 @@ fn collect_file_paths<R: Read + Seek>(z: &mut ZipArchive<R>) -> Fallible<Vec<Pat
             }
             true
         })
-        .collect::<ZipResult<Vec<PathBuf>>>()
+        .collect::<Fallible<Vec<PathBuf>>>()
         .map_err(Error::from)
 }
 
+/// Finds the common base directory of all given paths,
+/// then removes it from each of them.
+/// Returns the base directory.
 fn extract_base_directory(paths: &mut [PathBuf]) -> Fallible<PathBuf> {
     let mut base_dir = PathBuf::new();
     for path in paths.iter() {
@@ -115,6 +122,7 @@ fn extract_base_directory(paths: &mut [PathBuf]) -> Fallible<PathBuf> {
     Ok(base_dir)
 }
 
+/// Removes base_dir from the front of each path in paths
 fn remove_base_directory<P: AsRef<Path>>(
     paths: &mut [PathBuf],
     base_dir: P,
@@ -126,12 +134,12 @@ fn remove_base_directory<P: AsRef<Path>>(
 }
 
 /// Converts a ZipFile to its path, or returns None if it was a directory.
-fn filter_map_zip_file(r: ZipResult<ZipFile>) -> Option<ZipResult<PathBuf>> {
+fn filter_map_zip_file(r: ZipResult<ZipFile>) -> Option<Fallible<PathBuf>> {
     // If the ZipResult was an error, return that.
     // We user .err().unwrap() instead of unwrap_err() because apparently
     // ZipFile doesn't implement Debug, which unwrap_err() wants when it panics.
     if r.is_err() {
-        return Some(Err(r.err().unwrap()));
+        return Some(Err(Error::from(r.err().unwrap())));
     }
 
     let zip_file = r.unwrap();
@@ -143,5 +151,13 @@ fn filter_map_zip_file(r: ZipResult<ZipFile>) -> Option<ZipResult<PathBuf>> {
             return None;
         }
     }
+
+    let name = zip_file.sanitized_name();
+    // The file name had better not be empty.
+    // Checking this now will save us lots of trouble trying to process it later.
+    if name.file_name().is_none() {
+        return Some(Err(format_err!("File with no name found in ZIP archive")));
+    }
+
     Some(Ok(zip_file.sanitized_name()))
 }
