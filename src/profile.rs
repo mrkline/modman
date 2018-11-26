@@ -5,7 +5,7 @@ use std::rc::*;
 
 use semver::Version;
 use serde_derive::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use sha2::{Digest, Sha224};
 
 use crate::version_serde::*;
 
@@ -17,15 +17,15 @@ pub static BACKUP_README: &str = "modman-backup/README.txt";
 pub static TEMPDIR_PATH: &str = "modman-backup/temp";
 pub static BACKUP_PATH: &str = "modman-backup/backup";
 
-pub type Sha256Bytes = generic_array::GenericArray<u8, <Sha256 as Digest>::OutputSize>;
+pub type Sha224Bytes = generic_array::GenericArray<u8, <Sha224 as Digest>::OutputSize>;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct FileHash {
-    pub bytes: Sha256Bytes,
+    pub bytes: Sha224Bytes,
 }
 
 impl FileHash{
-    pub fn new(b: Sha256Bytes) -> Self { Self { bytes: b } }
+    pub fn new(b: Sha224Bytes) -> Self { Self { bytes: b } }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

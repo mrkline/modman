@@ -283,7 +283,7 @@ fn hash_and_backup<R: BufRead>(mod_file_path: &Path, reader: &mut R) -> Fallible
 /// Used for dry runs where we want to compute hashes but skip backups.
 /// (See hash_and_backup() for the real deal.)
 fn hash_file<R: BufRead>(reader: &mut R) -> Fallible<FileHash> {
-    let mut hasher = Sha256::new();
+    let mut hasher = Sha224::new();
     loop {
         let slice_length = {
             let slice = reader.fill_buf()?;
@@ -327,7 +327,7 @@ fn hash_and_write_temporary<R: BufRead>(
         ))
     })?;
 
-    let mut hasher = Sha256::new();
+    let mut hasher = Sha224::new();
 
     loop {
         let slice_length = {

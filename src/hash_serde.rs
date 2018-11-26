@@ -2,7 +2,7 @@ use core::fmt;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::profile::{Sha256Bytes, FileHash};
+use crate::profile::{Sha224Bytes, FileHash};
 
 // Similar to GenericArray's provided serde code,
 // but serializes to hex instead of an array.
@@ -35,7 +35,7 @@ impl<'de> Visitor<'de> for FileHashVisitor
         let decoded = hex::decode(s);
         match decoded {
             Ok(byte_vec) => {
-                Ok(FileHash::new(Sha256Bytes::clone_from_slice(&byte_vec) ))
+                Ok(FileHash::new(Sha224Bytes::clone_from_slice(&byte_vec) ))
             },
             Err(invalid_hex) => {
                 Err(match invalid_hex {
