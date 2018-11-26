@@ -2,13 +2,12 @@ use core::fmt;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::profile::{Sha224Bytes, FileHash};
+use crate::profile::{FileHash, Sha224Bytes};
 
 // Similar to GenericArray's provided serde code,
 // but serializes to hex instead of an array.
 
-impl Serialize for FileHash
-{
+impl Serialize for FileHash {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -21,8 +20,7 @@ impl Serialize for FileHash
 
 struct FileHashVisitor;
 
-impl<'de> Visitor<'de> for FileHashVisitor
-{
+impl<'de> Visitor<'de> for FileHashVisitor {
     type Value = FileHash;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -30,26 +28,24 @@ impl<'de> Visitor<'de> for FileHashVisitor
     }
 
     fn visit_str<E>(self, s: &str) -> Result<FileHash, E>
-    where E: de::Error
+    where
+        E: de::Error,
     {
         let decoded = hex::decode(s);
         match decoded {
-            Ok(byte_vec) => {
-                Ok(FileHash::new(Sha224Bytes::clone_from_slice(&byte_vec) ))
-            },
-            Err(invalid_hex) => {
-                Err(match invalid_hex {
-                    hex::FromHexError::InvalidHexCharacter{ c, index: _ } =>
-                        de::Error::invalid_value(de::Unexpected::Char(c), &self),
-                    _ => de::Error::invalid_length(s.len(), &self),
-                })
-            }
+            Ok(byte_vec) => Ok(FileHash::new(Sha224Bytes::clone_from_slice(&byte_vec))),
+            Err(invalid_hex) => Err(match invalid_hex {
+                hex::FromHexError::InvalidHexCharacter { c, index: _ } => {
+                    de::Error::invalid_value(de::Unexpected::Char(c), &self)
+                }
+                _ => de::Error::invalid_length(s.len(), &self),
+            }),
         }
     }
 }
 
-impl<'de> Deserialize<'de> for FileHash
-{
+impl<'de> Deserialize<'de> for FileHash {
+    #[inline]
     fn deserialize<D>(deserializer: D) -> Result<FileHash, D::Error>
     where
         D: Deserializer<'de>,

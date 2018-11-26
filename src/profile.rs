@@ -24,8 +24,10 @@ pub struct FileHash {
     pub bytes: Sha224Bytes,
 }
 
-impl FileHash{
-    pub fn new(b: Sha224Bytes) -> Self { Self { bytes: b } }
+impl FileHash {
+    pub fn new(b: Sha224Bytes) -> Self {
+        Self { bytes: b }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

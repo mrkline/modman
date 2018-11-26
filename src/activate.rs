@@ -109,7 +109,12 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
             let original_hash: Option<FileHash> =
                 try_hash_and_backup(&*mod_file_path, &p, dry_run)?;
 
-            let mod_hash = hash_file(&mut BufReader::new(m.read_file(&*mod_file_path)?))?;
+            let mod_hash = hash_contents(&mut BufReader::new(m.read_file(&*mod_file_path)?))?;
+            trace!(
+                "Mod file {} hashed to {:x}",
+                mod_path.join(mod_file_path.as_path()).to_string_lossy(),
+                mod_hash.bytes
+            );
 
             // TODO: The real deal. Write the mod file into the game directory.
 
@@ -145,6 +150,7 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
             println!("New profile file:");
             serde_json::ser::to_writer_pretty(std::io::stdout().lock(), &p)
                 .context("Couldn't serialize profile to JSON")?;
+            println!();
         }
     }
 
@@ -204,9 +210,13 @@ fn try_hash_and_backup(
             let hash = if !dry_run {
                 hash_and_backup(mod_file_path, &mut br)
             } else {
-                hash_file(&mut br)
+                hash_contents(&mut br)
             }?;
-            trace!("{} hashed to {:x}", mod_file_path.to_string_lossy(), hash.bytes);
+            trace!(
+                "Original file {} hashed to {:x}",
+                game_file_path.to_string_lossy(),
+                hash.bytes
+            );
             Ok(Some(hash))
         }
     }
@@ -282,7 +292,7 @@ fn hash_and_backup<R: BufRead>(mod_file_path: &Path, reader: &mut R) -> Fallible
 /// Hash data from the given buffered reader.
 /// Used for dry runs where we want to compute hashes but skip backups.
 /// (See hash_and_backup() for the real deal.)
-fn hash_file<R: BufRead>(reader: &mut R) -> Fallible<FileHash> {
+fn hash_contents<R: BufRead>(reader: &mut R) -> Fallible<FileHash> {
     let mut hasher = Sha224::new();
     loop {
         let slice_length = {
