@@ -206,7 +206,7 @@ fn try_hash_and_backup(
             } else {
                 hash_file(&mut br)
             }?;
-            trace!("{} hashed to {:x}", mod_file_path.to_string_lossy(), hash);
+            trace!("{} hashed to {:x}", mod_file_path.to_string_lossy(), hash.bytes);
             Ok(Some(hash))
         }
     }
@@ -296,7 +296,7 @@ fn hash_file<R: BufRead>(reader: &mut R) -> Fallible<FileHash> {
         reader.consume(slice_length);
     }
 
-    Ok(hasher.result())
+    Ok(FileHash::new(hasher.result()))
 }
 
 struct HashedFile {
@@ -346,7 +346,7 @@ fn hash_and_write_temporary<R: BufRead>(
     // but do what we can to make sure the data actually made it to disk.
     temp_file.sync_data()?;
 
-    let hash = hasher.result();
+    let hash = FileHash::new(hasher.result());
 
     Ok(HashedFile {
         hash,

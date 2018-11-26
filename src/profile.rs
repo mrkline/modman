@@ -17,7 +17,16 @@ pub static BACKUP_README: &str = "modman-backup/README.txt";
 pub static TEMPDIR_PATH: &str = "modman-backup/temp";
 pub static BACKUP_PATH: &str = "modman-backup/backup";
 
-pub type FileHash = generic_array::GenericArray<u8, <Sha256 as Digest>::OutputSize>;
+pub type Sha256Bytes = generic_array::GenericArray<u8, <Sha256 as Digest>::OutputSize>;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct FileHash {
+    pub bytes: Sha256Bytes,
+}
+
+impl FileHash{
+    pub fn new(b: Sha256Bytes) -> Self { Self { bytes: b } }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Profile {

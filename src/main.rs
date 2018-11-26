@@ -5,6 +5,7 @@ use failure::*;
 use getopts::{Options, ParsingStyle};
 
 mod activate;
+mod hash_serde;
 mod init;
 mod modification;
 mod profile;
