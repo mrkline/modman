@@ -59,7 +59,7 @@ pub fn init_command(args: &[String]) -> Fallible<()> {
         mods: Default::default(),
     };
 
-    let f = OpenOptions::new()
+    let mut f = OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(PROFILE_PATH)
@@ -70,8 +70,10 @@ pub fn init_command(args: &[String]) -> Fallible<()> {
                 Error::from(e)
             }
         })?;
-    serde_json::to_writer_pretty(f, &p)?;
+    serde_json::to_writer_pretty(&f, &p)?;
+    f.write(b"\n")?;
     drop(p);
+
 
     info!("Profile written to {}", PROFILE_PATH);
 

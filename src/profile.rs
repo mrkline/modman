@@ -15,7 +15,7 @@ pub static PROFILE_PATH: &str = "modman.profile";
 pub static STORAGE_PATH: &str = "modman-backup";
 pub static BACKUP_README: &str = "modman-backup/README.txt";
 pub static TEMPDIR_PATH: &str = "modman-backup/temp";
-pub static BACKUP_PATH: &str = "modman-backup/backup";
+pub static BACKUP_PATH: &str = "modman-backup/originals";
 
 pub type Sha224Bytes = generic_array::GenericArray<u8, <Sha224 as Digest>::OutputSize>;
 

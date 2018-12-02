@@ -17,8 +17,7 @@ use crate::activate::*;
 use crate::init::*;
 use crate::usage::*;
 
-static USAGE: &str = r#"
-Usage: modman [options] <command> [command options]
+static USAGE: &str = r#"Usage: modman [options] <command> [command options]
 
 <command> is one of:
 
@@ -37,6 +36,8 @@ Usage: modman [options] <command> [command options]
   verify: Verifies that the backup files are still good,
           the active mod files are still good,
           or both.
+
+  help: Print this information.
 "#;
 
 fn do_it() -> Fallible<()> {
@@ -65,10 +66,6 @@ fn do_it() -> Fallible<()> {
         }
     };
 
-    if matches.free.len() == 1 && matches.free[0] == "help" {
-        print_usage(USAGE, &opts);
-    }
-
     let verbosity = matches.opt_count("v");
     // The +1 is because we want -v to give info, not warn.
     stderrlog::new().verbosity(verbosity + 1).init()?;
@@ -88,13 +85,14 @@ fn do_it() -> Fallible<()> {
     // If the user passed multiple args (see above),
     // and the first one is "help", swap it with the second so that
     // "help init" produces the same help text as "init help".
-    if free_args[0] == "help" {
+    if free_args.len() > 1 && free_args[0] == "help" {
         free_args.swap(0, 1);
     }
 
     match free_args[0].as_ref() {
         "init" => init_command(&free_args[1..]),
         "activate" => activate_command(&free_args[1..]),
+        "help" => print_usage(USAGE, &opts),
         wut => {
             eprintln!("Unknown command: {}", wut);
             eprint_usage(USAGE, &opts);
