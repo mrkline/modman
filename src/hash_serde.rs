@@ -35,7 +35,7 @@ impl<'de> Visitor<'de> for FileHashVisitor {
         match decoded {
             Ok(byte_vec) => Ok(FileHash::new(Sha224Bytes::clone_from_slice(&byte_vec))),
             Err(invalid_hex) => Err(match invalid_hex {
-                hex::FromHexError::InvalidHexCharacter { c, index: _ } => {
+                hex::FromHexError::InvalidHexCharacter { c, .. } => {
                     de::Error::invalid_value(de::Unexpected::Char(c), &self)
                 }
                 _ => de::Error::invalid_length(s.len(), &self),

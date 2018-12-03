@@ -58,22 +58,7 @@ pub fn init_command(args: &[String]) -> Fallible<()> {
         root_directory: root_path,
         mods: Default::default(),
     };
-
-    let mut f = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(PROFILE_PATH)
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::AlreadyExists {
-                format_err!("A profile already exists.")
-            } else {
-                Error::from(e)
-            }
-        })?;
-    serde_json::to_writer_pretty(&f, &p)?;
-    f.write(b"\n")?;
-    drop(p);
-
+    create_new_profile_file(&p)?;
 
     info!("Profile written to {}", PROFILE_PATH);
 

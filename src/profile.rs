@@ -1,8 +1,12 @@
 use std::collections::*;
 use std::default::Default;
-use std::path::{Path, PathBuf};
+use std::fs::*;
+use std::io::prelude::*;
+use std::path::*;
 use std::rc::*;
 
+use failure::*;
+use log::*;
 use semver::Version;
 use serde_derive::{Deserialize, Serialize};
 use sha2::{Digest, Sha224};
@@ -74,7 +78,34 @@ pub struct ProfileFileData {
     pub meta: Meta,
 }
 
-pub fn sanity_check_profile(profile: &Profile) -> failure::Fallible<()> {
+pub fn create_new_profile_file(p: &Profile) -> Fallible<()> {
+    let mut f = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(PROFILE_PATH)
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::AlreadyExists {
+                format_err!("A profile already exists.")
+            } else {
+                Error::from(e)
+            }
+        })?;
+    serde_json::to_writer_pretty(&f, &p)?;
+    f.write_all(b"\n")?;
+    Ok(())
+}
+
+pub fn load_and_check_profile() -> Fallible<Profile> {
+    info!("Loading profile...");
+    let f = File::open(PROFILE_PATH)
+        .map_err(|e| e.context(format!("Couldn't open profile file ({})", PROFILE_PATH)))?;
+
+    let p: Profile = serde_json::from_reader(f).context("Couldn't parse profile file")?;
+    sanity_check_profile(&p)?;
+    Ok(p)
+}
+
+fn sanity_check_profile(profile: &Profile) -> Fallible<()> {
     if !profile.root_directory.exists() {
         return Err(failure::format_err!(
             "The root directory {} doesn't exist!\n\
@@ -82,6 +113,40 @@ pub fn sanity_check_profile(profile: &Profile) -> failure::Fallible<()> {
             profile.root_directory.to_string_lossy()
         ));
     }
+
+    Ok(())
+}
+
+pub fn update_profile_file(p: &Profile) -> Fallible<()> {
+    debug!("Updating profile file...");
+    // Let's write an update profile file in a few steps to minimize the chance
+    // of corruption:
+
+    // 1. Write to a temporary file, adjacent to the real deal.
+    let mut temp_filename = std::ffi::OsString::from(PROFILE_PATH);
+    temp_filename.push(".new");
+
+    trace!(
+        "Writing updated profile to temp file {}",
+        temp_filename.to_string_lossy()
+    );
+    let mut temp_file = File::create(&temp_filename)?;
+    serde_json::to_writer_pretty(&temp_file, p)?;
+    temp_file.write_all(b"\n")?;
+
+    // 2. Sync that temporary (for what it's worth)
+    temp_file.sync_data()?;
+    drop(temp_file);
+
+    // 3. Rename it to the real deal.
+    trace!("Moving updated profile to {}", PROFILE_PATH);
+    rename(&temp_filename, PROFILE_PATH).map_err(|e| {
+        e.context(format!(
+            "Couldn't rename {} to {}.",
+            temp_filename.to_string_lossy(),
+            PROFILE_PATH
+        ))
+    })?;
 
     Ok(())
 }

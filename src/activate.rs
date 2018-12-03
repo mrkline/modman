@@ -49,13 +49,7 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
 
     let dry_run = matches.opt_present("n");
 
-    info!("Loading profile...");
-
-    let f = File::open(PROFILE_PATH)
-        .map_err(|e| e.context(format!("Couldn't open profile file ({})", PROFILE_PATH)))?;
-
-    let mut p: Profile = serde_json::from_reader(f).context("Couldn't parse profile file")?;
-    sanity_check_profile(&p)?;
+    let mut p = load_and_check_profile()?;
 
     // Just for dry run reporting at the end
     let mut new_paths = Vec::<Rc<PathBuf>>::new();
@@ -71,87 +65,132 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
             return Err(format_err!("{} has already been activated!", mod_name));
         }
 
-        let mut m = open_mod(mod_path)?;
+        apply_mod(
+            mod_path,
+            &mut p,
+            dry_run,
+            &mut new_paths,
+            &mut backed_up_paths,
+        )?;
+    }
 
-        let mod_file_paths = m.paths()?;
+    if dry_run {
+        println!("Files to be added:");
+        for path in new_paths {
+            println!("\t{}", path.to_string_lossy());
+        }
 
-        // Next, look at all the paths we currently have,
-        // and make sure the new file doesn't contain any of them.
-        check_for_profile_conflicts(&mod_file_paths, &p)?;
+        println!("Files to be replaced:");
+        for path in backed_up_paths {
+            println!("\t{}", path.to_string_lossy());
+        }
 
-        // We want to install mod files in a way that minimizes the risk of
-        // losing data if this program is interrupted or crashes,
-        // but without writing a journal to some file.
-        // So:
-        // 1. For each file we to overwrite, first make a backup to a temporary
-        //    file (and sync it, for what that's worth).
-        // 2. Once it's completed, move this temporary file to its actual path
-        //    in the backup directory. Since moves are as close as we can get
-        //    to atomic ops on the filesystem, this should guarantee that
-        //    the backup directory only contains _complete_ copies of files
-        //    we've replaced.
-        // 3. Then, overwrite the original location with our mod file.
-        // 4. Once we've done so for all files, we'll rewrite the updated profile.
-        //
-        // If any of this is interrupted, the profile won't mention the mod
-        // we were activating or its files, but any overwritten files will have
-        // their backups.
-        // We should then be able to restore those later.
+        println!("New profile file:");
+        serde_json::ser::to_writer_pretty(std::io::stdout().lock(), &p)
+            .context("Couldn't serialize profile to JSON")?;
+        println!();
+    }
 
-        let mut manifest = ModManifest {
-            version: m.version().clone(),
-            files: BTreeMap::new(),
+    Ok(())
+}
+
+/// Given a mod's path and a profile, apply a given mod.
+/// If dry_run is set, no writes are made - new_paths and backed_up_paths
+/// are updated with paths that _would_ be written to, and hashes are taken.
+fn apply_mod(
+    mod_path: &Path,
+    p: &mut Profile,
+    dry_run: bool,
+    new_paths: &mut Vec<Rc<PathBuf>>,
+    backed_up_paths: &mut Vec<Rc<PathBuf>>,
+) -> Fallible<()> {
+    let mut m = open_mod(mod_path)?;
+
+    let mod_file_paths = m.paths()?;
+
+    // Next, look at all the paths we currently have,
+    // and make sure the new file doesn't contain any of them.
+    check_for_profile_conflicts(&mod_file_paths, &p)?;
+
+    // We want to install mod files in a way that minimizes the risk of
+    // losing data if this program is interrupted or crashes,
+    // but without writing a journal to some file.
+    // So:
+    // 1. For each file we to overwrite, first make a backup to a temporary
+    //    file (and sync it, for what that's worth).
+    // 2. Once it's completed, move this temporary file to its actual path
+    //    in the backup directory. Since moves are as close as we can get
+    //    to atomic ops on the filesystem, this should guarantee that
+    //    the backup directory only contains _complete_ copies of files
+    //    we've replaced.
+    // 3. Then, overwrite the original location with our mod file.
+    // 4. Once we've done so for all files, we'll rewrite the updated profile.
+    //
+    // If any of this is interrupted, the profile won't mention the mod
+    // we were activating or its files, but any overwritten files will have
+    // their backups.
+    // We should then be able to restore those later.
+
+    // We'll add this to the profile once we've applied all files.
+    let mut manifest = ModManifest {
+        version: m.version().clone(),
+        files: BTreeMap::new(),
+    };
+
+    for mod_file_path in mod_file_paths {
+        let mod_file_path = Rc::new(mod_file_path);
+
+        let original_hash: Option<FileHash> = try_hash_and_backup(&*mod_file_path, &p, dry_run)?;
+
+        // Record which paths would be backed up and which would be new
+        // to the game directory if we're doing a dry run.
+        if dry_run {
+            if original_hash.is_some() {
+                backed_up_paths.push(mod_file_path.clone());
+            } else {
+                new_paths.push(mod_file_path.clone());
+            }
+        }
+
+        // Open and hash the mod file.
+        // If this isn't a dry run, overwrite the game file.
+
+        let mut mod_file_reader = BufReader::new(m.read_file(&*mod_file_path)?);
+        let mod_hash = if dry_run {
+            // We don't need to write the mod file anywhere, so just hash it.
+            hash_contents(&mut mod_file_reader)
+        } else {
+            let game_file_path = mod_path_to_game_path(&mod_file_path, &p);
+            let mut game_file = File::create(&game_file_path).map_err(|e| {
+                e.context(format!(
+                    "Couldn't overwrite {}",
+                    game_file_path.to_string_lossy()
+                ))
+            })?;
+            hash_and_write(&mut mod_file_reader, &mut game_file)
+        }?;
+
+        trace!(
+            "Mod file {} hashed to {:x}",
+            mod_path.join(mod_file_path.as_path()).to_string_lossy(),
+            mod_hash.bytes
+        );
+
+        let meta = ModFileMetadata {
+            mod_hash,
+            original_hash,
         };
 
-        for mod_file_path in mod_file_paths {
-            let mod_file_path = Rc::new(mod_file_path);
+        manifest.files.insert(mod_file_path, meta);
+    }
 
-            let original_hash: Option<FileHash> =
-                try_hash_and_backup(&*mod_file_path, &p, dry_run)?;
+    // Update our profile with a manifest of the mod we just applied.
+    p.mods.insert(mod_path.to_owned(), manifest);
 
-            let mod_hash = hash_contents(&mut BufReader::new(m.read_file(&*mod_file_path)?))?;
-            trace!(
-                "Mod file {} hashed to {:x}",
-                mod_path.join(mod_file_path.as_path()).to_string_lossy(),
-                mod_hash.bytes
-            );
-
-            // TODO: The real deal. Write the mod file into the game directory.
-
-            if dry_run {
-                if original_hash.is_some() {
-                    backed_up_paths.push(mod_file_path.clone());
-                } else {
-                    new_paths.push(mod_file_path.clone());
-                }
-            }
-
-            let meta = ModFileMetadata {
-                mod_hash,
-                original_hash,
-            };
-
-            manifest.files.insert(mod_file_path, meta);
-        }
-
-        p.mods.insert(PathBuf::from(mod_name), manifest);
-
-        if dry_run {
-            println!("Files to be added:");
-            for path in &new_paths {
-                println!("\t{}", path.to_string_lossy());
-            }
-
-            println!("Files to be replaced:");
-            for path in &backed_up_paths {
-                println!("\t{}", path.to_string_lossy());
-            }
-
-            println!("New profile file:");
-            serde_json::ser::to_writer_pretty(std::io::stdout().lock(), &p)
-                .context("Couldn't serialize profile to JSON")?;
-            println!();
-        }
+    // If it's not a dry run, overwrite the profile file
+    // after each mod we apply.
+    if !dry_run {
+        update_profile_file(&p)?;
     }
 
     Ok(())
@@ -337,29 +376,33 @@ fn hash_and_write_temporary<R: BufRead>(
         ))
     })?;
 
-    let mut hasher = Sha224::new();
-
-    loop {
-        let slice_length = {
-            let slice = reader.fill_buf()?;
-            if slice.is_empty() {
-                break;
-            }
-            temp_file.write_all(slice)?;
-            hasher.input(slice);
-            slice.len()
-        };
-        reader.consume(slice_length);
-    }
+    let hash = hash_and_write(reader, &mut temp_file)?;
 
     // sync() is a dirty lie on modern OSes and drives,
     // but do what we can to make sure the data actually made it to disk.
     temp_file.sync_data()?;
 
-    let hash = FileHash::new(hasher.result());
-
     Ok(HashedFile {
         hash,
         temp_file_path,
     })
+}
+
+fn hash_and_write<R: BufRead, W: Write>(from: &mut R, to: &mut W) -> Fallible<FileHash> {
+    let mut hasher = Sha224::new();
+
+    loop {
+        let slice_length = {
+            let slice = from.fill_buf()?;
+            if slice.is_empty() {
+                break;
+            }
+            to.write_all(slice)?;
+            hasher.input(slice);
+            slice.len()
+        };
+        from.consume(slice_length);
+    }
+
+    Ok(FileHash::new(hasher.result()))
 }
