@@ -1,0 +1,9 @@
+WARN - The following files were found in the backup directory, but aren't recorded in the profile file:
+	wut.txt
+This usually happens when `modman actviate` is interrupted before it can update the profile file.
+Run `modman repair` to restore these files to the game directory and run `modman activate` again.
+WARN - The backup of A.txt has changed!
+Please repair your game files, then run `modman update` to make new backups.
+WARN - rootdir/A.txt has changed!
+If the game has been updated, run `modman update` to update backups and reinstall needed files.
+ERROR - Checks failed!

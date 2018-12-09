@@ -8,8 +8,16 @@ set -e
 cd test
 
 run='cargo run -q -- '
-rootsums='find rootdir -type f -exec sha224sum {} +'
-backupsums='find modman-backup -type f -exec sha224sum {} +'
+
+rootsums()
+{
+    find rootdir -type f | sort | tr '\n' '\0' | xargs -0 sha224sum
+}
+
+backupsums()
+{
+   find modman-backup -type f | sort | tr '\n' '\0' | xargs -0 sha224sum
+}
 
 echo "Building..."
 cargo build
@@ -26,9 +34,9 @@ rm -f mod1.zip && sh -c 'cd mod1 && zip -r9 ../mod1.zip *' > /dev/null
 echo "Testing init"
 $run init --root rootdir
 #cp modman.profile expected/empty.profile
-#$backupsums > expected/empty.backup
+#backupsums > expected/empty.backup
 diff -u modman.profile expected/empty.profile
-diff -u <($backupsums) expected/empty.backup
+diff -u <(backupsums) expected/empty.backup
 
 # A bunch of these rely on the specific error strings.
 # That's pretty fragile, but we should be running these tests often enough
@@ -45,11 +53,26 @@ mv modman.profile.tmp modman.profile
 echo "Activating mod1"
 $run activate mod1.zip
 #cp modman.profile expected/mod1.profile
-#$backupsums > expected/mod1.backup
-#$rootsums > expected/mod1.root
+#backupsums > expected/mod1.backup
+#rootsums > expected/mod1.root
 diff -u modman.profile expected/mod1.profile
-diff -u <($backupsums) expected/mod1.backup
-diff -u <($rootsums) expected/mod1.root
+diff -u expected/mod1.backup <(backupsums)
+diff -u expected/mod1.root <(rootsums)
+
+echo "Testing check"
+$run check
+# Mess with the backup files, the game files,
+# and create unexpected backup files to check `modman check`
+mv modman-backup/originals/A.txt modman-backup/originals/wut.txt
+echo "Changed backup contents" > modman-backup/originals/A.txt
+echo "Changed game contents" > rootdir/A.txt
+#! $run check > expected/check.warns 2>&1
+diff -u expected/check.warns <(! $run check 2>&1)
+# Undo those changes.
+mv modman-backup/originals/wut.txt modman-backup/originals/A.txt
+cp mod1/modroot/A.txt rootdir/A.txt
+$run check
+
 
 ## TODO: deactivate. For now, do it manually, with shell
 rm -r rootdir/*
@@ -57,6 +80,6 @@ mv modman-backup/originals/* rootdir
 cp expected/empty.profile modman.profile
 # Will actually be meaningful once deactivate is done.
 diff -u modman.profile expected/empty.profile
-diff -u <($backupsums) expected/empty.backup
+diff -u expected/empty.backup <(backupsums)
 
 echo "All tests passed!"

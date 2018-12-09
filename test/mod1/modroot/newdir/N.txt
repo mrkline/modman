@@ -1,0 +1,1 @@
+I'm a file in a directory that doesn't exist until this mod is installed.

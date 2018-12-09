@@ -7,14 +7,13 @@ use std::rc::*;
 
 use failure::*;
 use log::*;
-use sha2::*;
 
+use crate::file_utils::*;
 use crate::modification::*;
 use crate::profile::*;
 use crate::usage::*;
 
-static USAGE: &str = r#"
-Usage: modman activate [options] <MOD>
+static USAGE: &str = r#"Usage: modman activate [options] <MOD>
 
 Activate a mod at the path <MOD>.
 Mods can be in two formats:
@@ -161,17 +160,27 @@ fn apply_mod(
             hash_contents(&mut mod_file_reader)
         } else {
             let game_file_path = mod_path_to_game_path(&mod_file_path, &p);
+            // Create any needed directory structure.
+            let game_file_dir = game_file_path.parent().unwrap();
+            create_dir_all(&game_file_dir).map_err(|e| {
+                e.context(format!(
+                    "Couldn't create directory {}",
+                    game_file_dir.to_string_lossy()
+                ))
+            })?;
+
             let mut game_file = File::create(&game_file_path).map_err(|e| {
                 e.context(format!(
                     "Couldn't overwrite {}",
                     game_file_path.to_string_lossy()
                 ))
             })?;
+
             hash_and_write(&mut mod_file_reader, &mut game_file)
         }?;
 
         trace!(
-            "Mod file {} hashed to {:x}",
+            "Mod file {} hashed to\n{:x}",
             mod_path.join(mod_file_path.as_path()).to_string_lossy(),
             mod_hash.bytes
         );
@@ -252,7 +261,7 @@ fn try_hash_and_backup(
                 hash_contents(&mut br)
             }?;
             trace!(
-                "Original file {} hashed to {:x}",
+                "Original file {} hashed to\n{:x}",
                 game_file_path.to_string_lossy(),
                 hash.bytes
             );
@@ -328,26 +337,6 @@ fn hash_and_backup<R: BufRead>(mod_file_path: &Path, reader: &mut R) -> Fallible
     Ok(hnt.hash)
 }
 
-/// Hash data from the given buffered reader.
-/// Used for dry runs where we want to compute hashes but skip backups.
-/// (See hash_and_backup() for the real deal.)
-fn hash_contents<R: BufRead>(reader: &mut R) -> Fallible<FileHash> {
-    let mut hasher = Sha224::new();
-    loop {
-        let slice_length = {
-            let slice = reader.fill_buf()?;
-            if slice.is_empty() {
-                break;
-            }
-            hasher.input(slice);
-            slice.len()
-        };
-        reader.consume(slice_length);
-    }
-
-    Ok(FileHash::new(hasher.result()))
-}
-
 struct HashedFile {
     hash: FileHash,
     temp_file_path: PathBuf,
@@ -386,23 +375,4 @@ fn hash_and_write_temporary<R: BufRead>(
         hash,
         temp_file_path,
     })
-}
-
-fn hash_and_write<R: BufRead, W: Write>(from: &mut R, to: &mut W) -> Fallible<FileHash> {
-    let mut hasher = Sha224::new();
-
-    loop {
-        let slice_length = {
-            let slice = from.fill_buf()?;
-            if slice.is_empty() {
-                break;
-            }
-            to.write_all(slice)?;
-            hasher.input(slice);
-            slice.len()
-        };
-        from.consume(slice_length);
-    }
-
-    Ok(FileHash::new(hasher.result()))
 }

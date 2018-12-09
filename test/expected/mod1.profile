@@ -15,6 +15,10 @@
         "C.txt": {
           "mod_hash": "4791fd7d53541c90c1b438f15d90f3590e300ef57caff29ec4a08eed",
           "original_hash": null
+        },
+        "newdir/N.txt": {
+          "mod_hash": "3918e7158a52d0b15de752da20621516e69454f06022b312dced1bb2",
+          "original_hash": null
         }
       }
     }

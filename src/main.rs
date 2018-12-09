@@ -1,10 +1,14 @@
 use std::env;
 use std::process::exit;
 
+use atty::*;
 use failure::*;
 use getopts::{Options, ParsingStyle};
+use log::*;
 
 mod activate;
+mod check;
+mod file_utils;
 mod hash_serde;
 mod init;
 mod modification;
@@ -14,6 +18,7 @@ mod version_serde;
 mod zip_mod;
 
 use crate::activate::*;
+use crate::check::*;
 use crate::init::*;
 use crate::usage::*;
 
@@ -67,8 +72,16 @@ fn do_it() -> Fallible<()> {
     };
 
     let verbosity = matches.opt_count("v");
+    let mut errlog = stderrlog::new();
     // The +1 is because we want -v to give info, not warn.
-    stderrlog::new().verbosity(verbosity + 1).init()?;
+    errlog.verbosity(verbosity + 1);
+    if atty::is(Stream::Stdout) {
+        errlog.color(stderrlog::ColorChoice::Auto);
+    }
+    else {
+        errlog.color(stderrlog::ColorChoice::Never);
+    }
+    errlog.init()?;
 
     if let Some(chto) = matches.opt_str("C") {
         env::set_current_dir(&chto)
@@ -92,6 +105,7 @@ fn do_it() -> Fallible<()> {
     match free_args[0].as_ref() {
         "init" => init_command(&free_args[1..]),
         "activate" => activate_command(&free_args[1..]),
+        "check" => check_command(&free_args[1..]),
         "help" => print_usage(USAGE, &opts),
         wut => {
             eprintln!("Unknown command: {}", wut);
@@ -102,7 +116,7 @@ fn do_it() -> Fallible<()> {
 
 fn main() {
     do_it().unwrap_or_else(|e| {
-        eprintln!("{}", pretty_error(&e));
+        error!("{}", pretty_error(&e));
         exit(1);
     });
 }
