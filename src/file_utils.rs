@@ -25,7 +25,6 @@ pub fn hash_contents<R: BufRead>(reader: &mut R) -> Fallible<FileHash> {
     Ok(FileHash::new(hasher.result()))
 }
 
-
 pub fn hash_and_write<R: BufRead, W: Write>(from: &mut R, to: &mut W) -> Fallible<FileHash> {
     let mut hasher = Sha224::new();
 

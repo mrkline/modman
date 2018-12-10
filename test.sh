@@ -62,13 +62,15 @@ diff -u expected/mod1.root <(rootsums)
 echo "Testing check"
 $run check
 # Mess with the backup files, the game files,
-# and create unexpected backup files to check `modman check`
+# and create a fake journal
+touch modman-backup/temp/activate.journal
 mv modman-backup/originals/A.txt modman-backup/originals/wut.txt
 echo "Changed backup contents" > modman-backup/originals/A.txt
 echo "Changed game contents" > rootdir/A.txt
 #! $run check > expected/check.warns 2>&1
 diff -u expected/check.warns <(! $run check 2>&1)
 # Undo those changes.
+rm modman-backup/temp/activate.journal
 mv modman-backup/originals/wut.txt modman-backup/originals/A.txt
 cp mod1/modroot/A.txt rootdir/A.txt
 $run check

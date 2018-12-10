@@ -8,9 +8,11 @@ use log::*;
 
 mod activate;
 mod check;
+mod encoding;
 mod file_utils;
 mod hash_serde;
 mod init;
+mod journal;
 mod modification;
 mod profile;
 mod usage;
@@ -77,8 +79,7 @@ fn do_it() -> Fallible<()> {
     errlog.verbosity(verbosity + 1);
     if atty::is(Stream::Stdout) {
         errlog.color(stderrlog::ColorChoice::Auto);
-    }
-    else {
+    } else {
         errlog.color(stderrlog::ColorChoice::Never);
     }
     errlog.init()?;

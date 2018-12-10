@@ -98,7 +98,8 @@ Feel free to delete them."#,
                 TEMPDIR_PATH, BACKUP_PATH
             )
             .as_bytes(),
-        )?;
+        )
+        .map_err(|e| e.context(format!("Couldn't create backup README ({})", BACKUP_README)))?;
 
     info!("Backup directory ({}/) created", STORAGE_PATH);
 

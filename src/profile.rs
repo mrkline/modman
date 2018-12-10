@@ -3,7 +3,6 @@ use std::default::Default;
 use std::fs::*;
 use std::io::prelude::*;
 use std::path::*;
-use std::rc::*;
 
 use failure::*;
 use log::*;
@@ -47,9 +46,7 @@ pub struct ModManifest {
         deserialize_with = "deserialize_version"
     )]
     pub version: Version,
-    // Use an Rc<PathBuf> because we'll do plenty of copying file paths around.
-    // Rc<Path> would be even better, but serde doesn't like unsized things.
-    pub files: BTreeMap<Rc<PathBuf>, ModFileMetadata>,
+    pub files: BTreeMap<PathBuf, ModFileMetadata>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -87,7 +84,7 @@ pub fn create_new_profile_file(p: &Profile) -> Fallible<()> {
             if e.kind() == std::io::ErrorKind::AlreadyExists {
                 format_err!("A profile already exists.")
             } else {
-                Error::from(e)
+                Error::from(e.context(format!("Couldn't create profile file ({})", PROFILE_PATH)))
             }
         })?;
     serde_json::to_writer_pretty(&f, &p)?;
@@ -135,7 +132,9 @@ pub fn update_profile_file(p: &Profile) -> Fallible<()> {
     temp_file.write_all(b"\n")?;
 
     // 2. Sync that temporary (for what it's worth)
-    temp_file.sync_data()?;
+    temp_file
+        .sync_data()
+        .map_err(|e| e.context(format!("Couldn't sync {}", temp_filename.to_string_lossy())))?;
     drop(temp_file);
 
     // 3. Rename it to the real deal.
