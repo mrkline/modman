@@ -79,7 +79,8 @@ mv modman-backup/originals/A.txt modman-backup/originals/wut.txt
 echo "Changed backup contents" > modman-backup/originals/A.txt
 echo "Changed game contents" > rootdir/A.txt
 #! $run check > expected/check.warns 2>&1
-diff -u expected/check.warns <(! $run check 2>&1)
+out=$(! $run check 2>&1)
+diff -u expected/check.warns <(echo "$out")
 # Undo those changes.
 rm modman-backup/temp/activate.journal
 mv modman-backup/originals/wut.txt modman-backup/originals/A.txt
