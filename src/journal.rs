@@ -39,7 +39,8 @@ pub fn get_journal_path() -> PathBuf {
     Path::new(TEMPDIR_PATH).join(JOURNAL_NAME).to_owned()
 }
 
-pub fn delete_journal() -> Fallible<()> {
+pub fn delete_journal(j: Box<dyn Journal>) -> Fallible<()> {
+    drop(j);
     let path = get_journal_path();
     let rm = remove_file(&path);
     match rm {
@@ -58,7 +59,7 @@ pub fn delete_journal() -> Fallible<()> {
 }
 
 /// A fake journal that writes to stderr instead of applying sync'd writes
-/// to a journal file.
+/// to a file.
 struct DryRunJournal {}
 
 impl DryRunJournal {

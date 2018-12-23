@@ -28,8 +28,9 @@ rm -f modman.profile
 rm -rf modman-backup
 
 # Make a zip version of mod1
-echo "Creating ZIP mod..."
+echo "Creating ZIP mods..."
 rm -f mod1.zip && sh -c 'cd mod1 && zip -r9 ../mod1.zip *' > /dev/null
+rm -f mod-conflicting.zip && sh -c 'cd mod-conflicting && zip -r9 ../mod-conflicting.zip *' > /dev/null
 
 echo "Testing init"
 $run init --root rootdir
@@ -43,11 +44,13 @@ diff -u <(backupsums) expected/empty.backup
 # to notice if they get out of sync.
 
 echo "Testing init failure on existing profile"
-! $run init --root rootdir 2>&1 | grep -q 'A profile already exists.'
+out=$(! $run init --root rootdir 2>&1)
+echo "$out" | grep -q 'A profile already exists.'
 
 echo "Testing init failure on existing backup directory"
 mv modman.profile modman.profile.tmp
-! $run init --root rootdir 2>&1 | grep -q "Please move or remove it."
+out=$(! $run init --root rootdir 2>&1)
+echo "$out" | grep -q "Please move or remove it."
 mv modman.profile.tmp modman.profile
 
 echo "Activating mod1"
@@ -58,6 +61,14 @@ $run activate mod1.zip
 diff -u modman.profile expected/mod1.profile
 diff -u expected/mod1.backup <(backupsums)
 diff -u expected/mod1.root <(rootsums)
+
+echo "Testing activation failure when adding the same mod twice"
+out=$(! $run activate mod1.zip 2>&1)
+echo "$out" | grep -q "mod1.zip has already been activated!"
+
+echo "Testing activation conflict detection"
+out=$(! $run activate mod-conflicting.zip 2>&1)
+echo "$out" | grep -q "A.txt from mod-conflicting.zip would overwrite the same file from mod1.zip"
 
 echo "Testing check"
 $run check

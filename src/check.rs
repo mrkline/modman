@@ -53,10 +53,10 @@ fn check_for_journal() -> bool {
     if crate::journal::get_journal_path().exists() {
         warn!(
             "A journal file was found in the backup directory.\n\
-            This usually happens when `modman activate` is interrupted \
-            before it can update the profile file.\n\
-            Run `modman repair` to restore files to the game directory \
-            and run `modman activate` again."
+             This usually happens when `modman activate` is interrupted \
+             before it can update the profile file.\n\
+             Run `modman repair` to restore files to the game directory \
+             and run `modman activate` again."
         );
         false
     } else {

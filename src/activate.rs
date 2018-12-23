@@ -76,14 +76,13 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
 /// If dry_run is set, no writes are made, except to the journal,
 /// which will be read back once the mod is applied.
 fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
-
     let mut m = open_mod(mod_path)?;
 
     let mod_file_paths = m.paths()?;
 
     // Next, look at all the paths we currently have,
     // and make sure the new file doesn't contain any of them.
-    check_for_profile_conflicts(&mod_file_paths, &p)?;
+    check_for_profile_conflicts(mod_path, &mod_file_paths, &p)?;
 
     // We want to install mod files in a way that minimizes the risk of
     // losing data if this program is interrupted or crashes.
@@ -170,8 +169,7 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
     if !dry_run {
         update_profile_file(&p)?;
         // With that successfully done, we can axe the journal.
-        drop(journal);
-        delete_journal()?;
+        delete_journal(journal)?;
     }
 
     Ok(())
@@ -179,13 +177,18 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
 
 /// Checks the given profile for file paths from a mod we wish to apply,
 /// and returns an error if it already contains them.
-fn check_for_profile_conflicts(mod_file_paths: &[PathBuf], p: &Profile) -> Fallible<()> {
+fn check_for_profile_conflicts(
+    mod_path: &Path,
+    mod_file_paths: &[PathBuf],
+    p: &Profile,
+) -> Fallible<()> {
     for mod_file_path in mod_file_paths {
         for (active_mod_name, active_mod) in &p.mods {
             if active_mod.files.contains_key(&*mod_file_path) {
                 return Err(format_err!(
-                    "{} would overwrite a file from {}",
+                    "{} from {} would overwrite the same file from {}",
                     mod_file_path.to_string_lossy(),
+                    mod_path.to_string_lossy(),
                     active_mod_name.to_string_lossy()
                 ));
             }
