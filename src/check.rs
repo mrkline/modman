@@ -1,10 +1,12 @@
 use std::fs::*;
 use std::io::BufReader;
+use std::path::{Path, PathBuf};
 
 use failure::*;
 use log::*;
 
 use crate::file_utils::*;
+use crate::journal::*;
 use crate::profile::*;
 use crate::usage::*;
 
@@ -36,6 +38,9 @@ pub fn check_command(args: &[String]) -> Fallible<()> {
     info!("Checking if `modman activate` was interrupted...");
     ok &= check_for_journal();
 
+    info!("Checking for unknown files...");
+    ok &= find_unknown_files(&p)?;
+
     info!("Verifying backup files...");
     ok &= verify_backups(&p)?;
 
@@ -62,6 +67,92 @@ fn check_for_journal() -> bool {
     } else {
         true
     }
+}
+
+fn collect_file_paths_in_backup() -> Fallible<Vec<PathBuf>> {
+    let mut ret = Vec::new();
+    backup_dir_walker(Path::new(BACKUP_PATH), &mut ret)?;
+    Ok(ret)
+}
+
+fn backup_dir_walker(dir: &Path, file_list: &mut Vec<PathBuf>) -> Fallible<()> {
+    let dir_iter = read_dir(dir).map_err(|e| {
+        e.context(format!(
+            "Could not read directory {}",
+            dir.to_string_lossy()
+        ))
+    })?;
+    for entry in dir_iter {
+        let entry = entry?;
+        let ft = entry.file_type()?;
+        if ft.is_dir() {
+            backup_dir_walker(&entry.path(), file_list)?;
+        } else if ft.is_file() {
+            let entry_path = entry.path();
+            let mod_path = entry_path.strip_prefix(BACKUP_PATH)?;
+            file_list.push(mod_path.to_owned());
+        }
+        // We shouldn't find any symbolic links or other unusual things
+        // in our backup directory:
+        else {
+            return Err(format_err!(
+                "{} isn't a file or a directory",
+                entry.path().to_string_lossy()
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Returns the mod_file_paths that aren't mentioned in the profile
+/// or the journal.
+fn collect_unknown_files(
+    mod_file_paths: Vec<PathBuf>,
+    p: &Profile,
+    jm: &JournalMap,
+) -> Vec<PathBuf> {
+    let mut ret = Vec::<PathBuf>::new();
+
+    'outer: for mod_file_path in mod_file_paths {
+        if jm.contains_key(&mod_file_path) {
+            continue;
+        }
+
+        for (_mod_name, manifest) in &p.mods {
+            if manifest.files.contains_key(&mod_file_path) {
+                continue 'outer;
+            }
+        }
+        // mod_file_path wasn't found in any mods in the profile.
+        ret.push(mod_file_path);
+    }
+    ret
+}
+
+/// Checks for unknown files, and returns false if any are found.
+fn find_unknown_files(p: &Profile) -> Fallible<bool> {
+    let backed_up_files = collect_file_paths_in_backup()?;
+
+    let mut ret = true;
+
+    // Build a list of files that aren't recorded in the profile
+    // or journal.
+    let journal_files = read_journal()?;
+
+    let unknown_files = collect_unknown_files(backed_up_files, &p, &journal_files);
+    if !unknown_files.is_empty() {
+        let mut warning = format!(
+            "The following files were found in the backup directory \
+             but aren't known by modman:"
+        );
+        for file in &unknown_files {
+            warning += &format!("\n\t{}", file.to_string_lossy());
+        }
+        warn!("{}", warning);
+        ret = false;
+    }
+
+    Ok(ret)
 }
 
 /// Verifies integrity of backup files,

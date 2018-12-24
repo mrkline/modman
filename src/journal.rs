@@ -1,6 +1,7 @@
+use std::collections::*;
 use std::fs::*;
 use std::io::prelude::*;
-
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use failure::*;
@@ -41,21 +42,60 @@ pub fn get_journal_path() -> PathBuf {
 
 pub fn delete_journal(j: Box<dyn Journal>) -> Fallible<()> {
     drop(j);
-    let path = get_journal_path();
-    let rm = remove_file(&path);
-    match rm {
-        Ok(()) => Ok(()),
-        Err(rm_err) => {
-            // No problem if it didn't exist already.
-            if rm_err.kind() == std::io::ErrorKind::NotFound {
-                Ok(())
+    remove_file(get_journal_path())
+        .map_err(|e| Error::from(e.context("Couldn't delete activation journal")))
+}
+
+pub enum JournalAction {
+    Added,
+    Replaced,
+}
+
+pub type JournalMap = BTreeMap<PathBuf, JournalAction>;
+
+pub fn read_journal() -> Fallible<JournalMap> {
+    let f = match File::open(get_journal_path()) {
+        Ok(f) => f,
+        Err(open_err) =>
+        // No problem if there's no journal
+        {
+            if open_err.kind() == std::io::ErrorKind::NotFound {
+                return Ok(BTreeMap::new());
             } else {
-                Err(Error::from(
-                    rm_err.context("Couldn't delete activation journal"),
-                ))
+                return Err(Error::from(
+                    open_err.context(format!("Couldn't open activation journal")),
+                ));
             }
         }
+    };
+
+    let mut ret = BTreeMap::new();
+    let br = BufReader::new(f);
+    for line in br.lines() {
+        let line = line.context("Couldn't read activation journal")?;
+        let tokens: Vec<&str> = line
+            .split(char::is_whitespace)
+            .filter(|t| !t.is_empty())
+            .collect();
+        if tokens.len() != 2 {
+            return Err(format_err!(
+                "Couldn't understand activation journal line:\n{}",
+                line
+            ));
+        }
+        match tokens[0] {
+            "Add" => ret.insert(PathBuf::from(tokens[1]), JournalAction::Added),
+            "Replace" => ret.insert(PathBuf::from(tokens[1]), JournalAction::Replaced),
+            _ => {
+                return Err(format_err!(
+                    "Couldn't understand activation journal line:\n{}",
+                    line
+                ));
+            }
+        };
     }
+
+    Ok(ret)
 }
 
 /// A fake journal that writes to stderr instead of applying sync'd writes
