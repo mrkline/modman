@@ -69,33 +69,33 @@ pub fn read_journal() -> Fallible<JournalMap> {
         }
     };
 
-    let mut ret = BTreeMap::new();
-    let br = BufReader::new(f);
-    for line in br.lines() {
-        let line = line.context("Couldn't read activation journal")?;
-        let tokens: Vec<&str> = line
-            .split(char::is_whitespace)
-            .filter(|t| !t.is_empty())
-            .collect();
-        if tokens.len() != 2 {
+    BufReader::new(f).lines().map(|l| {
+        let line = l.context("Couldn't read activation journal")?;
+        read_journal_line(line)
+    }).collect()
+}
+
+fn read_journal_line(line: String) -> Fallible<(PathBuf, JournalAction)> {
+    let tokens: Vec<&str> = line
+        .split(char::is_whitespace)
+        .filter(|t| !t.is_empty())
+        .collect();
+    if tokens.len() != 2 {
+        return Err(format_err!(
+            "Couldn't understand activation journal line:\n{}",
+            line
+        ));
+    }
+    match tokens[0] {
+        "Add" => Ok((PathBuf::from(tokens[1]), JournalAction::Added)),
+        "Replace" => Ok((PathBuf::from(tokens[1]), JournalAction::Replaced)),
+        _ => {
             return Err(format_err!(
                 "Couldn't understand activation journal line:\n{}",
                 line
             ));
         }
-        match tokens[0] {
-            "Add" => ret.insert(PathBuf::from(tokens[1]), JournalAction::Added),
-            "Replace" => ret.insert(PathBuf::from(tokens[1]), JournalAction::Replaced),
-            _ => {
-                return Err(format_err!(
-                    "Couldn't understand activation journal line:\n{}",
-                    line
-                ));
-            }
-        };
     }
-
-    Ok(ret)
 }
 
 /// A fake journal that writes to stderr instead of applying sync'd writes
