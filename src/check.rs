@@ -111,22 +111,13 @@ fn collect_unknown_files(
     p: &Profile,
     jm: &JournalMap,
 ) -> Vec<PathBuf> {
-    let mut ret = Vec::<PathBuf>::new();
-
-    'outer: for mod_file_path in mod_file_paths {
-        if jm.contains_key(&mod_file_path) {
-            continue;
-        }
-
-        for manifest in p.mods.values() {
-            if manifest.files.contains_key(&mod_file_path) {
-                continue 'outer;
-            }
-        }
-        // mod_file_path wasn't found in any mods in the profile.
-        ret.push(mod_file_path);
-    }
-    ret
+    mod_file_paths.into_iter().filter(|path| {
+        // We want things that aren't mentioned in the journal
+        !jm.contains_key(path) &&
+        // Or in any of the mod manifests
+        !p.mods.values().any(|manifest|
+            manifest.files.contains_key(path))
+    }).collect()
 }
 
 /// Checks for unknown files, and returns false if any are found.
