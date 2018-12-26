@@ -9,9 +9,8 @@ use crate::profile::FileHash;
 
 pub fn hash_file(path: &Path) -> Fallible<FileHash> {
     trace!("Hashing {}", path.to_string_lossy());
-    let f = std::fs::File::open(&path).map_err(|e| {
-        e.context(format!("Couldn't open {}", path.to_string_lossy()))
-    })?;
+    let f = std::fs::File::open(&path)
+        .map_err(|e| e.context(format!("Couldn't open {}", path.to_string_lossy())))?;
     hash_contents(&mut std::io::BufReader::new(f))
 }
 
