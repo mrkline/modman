@@ -1,9 +1,19 @@
 use std::io::prelude::*;
+use std::path::Path;
 
 use failure::*;
+use log::*;
 use sha2::*;
 
 use crate::profile::FileHash;
+
+pub fn hash_file(path: &Path) -> Fallible<FileHash> {
+    trace!("Hashing {}", path.to_string_lossy());
+    let f = std::fs::File::open(&path).map_err(|e| {
+        e.context(format!("Couldn't open {}", path.to_string_lossy()))
+    })?;
+    hash_contents(&mut std::io::BufReader::new(f))
+}
 
 /// Hash data from the given buffered reader.
 /// Used for dry runs where we want to compute hashes but skip backups.

@@ -1,5 +1,4 @@
 use std::fs::*;
-use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use failure::*;
@@ -159,11 +158,7 @@ fn verify_backups(p: &Profile) -> Fallible<bool> {
             let original_hash = &metadata.original_hash.unwrap();
 
             let backup_path = mod_path_to_backup_path(&**mod_path);
-            let f = File::open(&backup_path).map_err(|e| {
-                e.context(format!("Couldn't open {}", backup_path.to_string_lossy()))
-            })?;
-            trace!("Hashing {}", backup_path.to_string_lossy());
-            let backup_hash = hash_contents(&mut BufReader::new(f))?;
+            let backup_hash = hash_file(&backup_path)?;
             if backup_hash != *original_hash {
                 debug!(
                     "{} hashed to\n{:x},\nexpected {:x}",
@@ -193,10 +188,7 @@ fn verify_installed_mod_files(p: &Profile) -> Fallible<bool> {
     for manifest in p.mods.values() {
         for (mod_path, metadata) in &manifest.files {
             let game_path = mod_path_to_game_path(&**mod_path, p);
-            let f = File::open(&game_path)
-                .map_err(|e| e.context(format!("Couldn't open {}", game_path.to_string_lossy())))?;
-            trace!("Hashing {}", game_path.to_string_lossy());
-            let game_hash = hash_contents(&mut BufReader::new(f))?;
+            let game_hash = hash_file(&game_path)?;
             if game_hash != metadata.mod_hash {
                 debug!(
                     "{} hashed to\n{:x},\nexpected {:x}",
