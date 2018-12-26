@@ -63,16 +63,19 @@ pub fn read_journal() -> Fallible<JournalMap> {
                 return Ok(BTreeMap::new());
             } else {
                 return Err(Error::from(
-                    open_err.context(format!("Couldn't open activation journal")),
+                    open_err.context("Couldn't open activation journal"),
                 ));
             }
         }
     };
 
-    BufReader::new(f).lines().map(|l| {
-        let line = l.context("Couldn't read activation journal")?;
-        read_journal_line(line)
-    }).collect()
+    BufReader::new(f)
+        .lines()
+        .map(|l| {
+            let line = l.context("Couldn't read activation journal")?;
+            read_journal_line(line)
+        })
+        .collect()
 }
 
 fn read_journal_line(line: String) -> Fallible<(PathBuf, JournalAction)> {
@@ -89,12 +92,10 @@ fn read_journal_line(line: String) -> Fallible<(PathBuf, JournalAction)> {
     match tokens[0] {
         "Add" => Ok((PathBuf::from(tokens[1]), JournalAction::Added)),
         "Replace" => Ok((PathBuf::from(tokens[1]), JournalAction::Replaced)),
-        _ => {
-            return Err(format_err!(
-                "Couldn't understand activation journal line:\n{}",
-                line
-            ));
-        }
+        _ => Err(format_err!(
+            "Couldn't understand activation journal line:\n{}",
+            line
+        )),
     }
 }
 

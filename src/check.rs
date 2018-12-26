@@ -118,7 +118,7 @@ fn collect_unknown_files(
             continue;
         }
 
-        for (_mod_name, manifest) in &p.mods {
+        for manifest in p.mods.values() {
             if manifest.files.contains_key(&mod_file_path) {
                 continue 'outer;
             }
@@ -141,10 +141,9 @@ fn find_unknown_files(p: &Profile) -> Fallible<bool> {
 
     let unknown_files = collect_unknown_files(backed_up_files, &p, &journal_files);
     if !unknown_files.is_empty() {
-        let mut warning = format!(
-            "The following files were found in the backup directory \
-             but aren't known by modman:"
-        );
+        let mut warning = "The following files were found in the backup directory \
+                           but aren't known by modman:"
+            .to_owned();
         for file in &unknown_files {
             warning += &format!("\n\t{}", file.to_string_lossy());
         }
