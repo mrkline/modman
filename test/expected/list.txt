@@ -1,0 +1,5 @@
+mod1.zip
+	A.txt
+	B.txt
+	C.txt
+	newdir/N.txt

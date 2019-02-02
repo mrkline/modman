@@ -80,7 +80,7 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
 
     let mod_file_paths = m.paths()?;
 
-    // Next, look at all the paths we currently have,
+    // Look at all the paths we currently have,
     // and make sure the new file doesn't contain any of them.
     check_for_profile_conflicts(mod_path, &mod_file_paths, &p)?;
 
@@ -100,7 +100,7 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
     //    the backup directory only contains _complete_ copies of files
     //    we've replaced.
     // 4. Then, overwrite the original location with our mod file.
-    // 5. Once we've done so for all files, we'll rewrite the updated profile.
+    // 5. Once we've done so for all files, we'll write out the updated profile.
     //
     // If any of this is interrupted, the profile won't mention the mod
     // we were activating or its files, but any overwritten files will have

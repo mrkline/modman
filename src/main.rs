@@ -12,6 +12,7 @@ mod encoding;
 mod file_utils;
 mod hash_serde;
 mod init;
+mod list;
 mod journal;
 mod modification;
 mod profile;
@@ -22,6 +23,7 @@ mod zip_mod;
 use crate::activate::*;
 use crate::check::*;
 use crate::init::*;
+use crate::list::*;
 use crate::usage::*;
 
 static USAGE: &str = r#"Usage: modman [options] <command> [command options]
@@ -40,9 +42,7 @@ static USAGE: &str = r#"Usage: modman [options] <command> [command options]
   update: Following an update, discover which modded game files were updated.
           Backup those updates, then overwrite them with the mod files again.
 
-  verify: Verifies that the backup files are still good,
-          the active mod files are still good,
-          or both.
+  check: Verifies that active mod files and backups are still good.
 
   help: Print this information.
 "#;
@@ -104,9 +104,10 @@ fn do_it() -> Fallible<()> {
     }
 
     match free_args[0].as_ref() {
-        "init" => init_command(&free_args[1..]),
         "activate" => activate_command(&free_args[1..]),
         "check" => check_command(&free_args[1..]),
+        "list" => list_command(&free_args[1..]),
+        "init" => init_command(&free_args[1..]),
         "help" => print_usage(USAGE, &opts),
         wut => {
             eprintln!("Unknown command: {}", wut);

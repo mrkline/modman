@@ -70,6 +70,10 @@ echo "Testing activation conflict detection"
 out=$(! $run activate mod-conflicting.zip 2>&1)
 echo "$out" | grep -q "A.txt from mod-conflicting.zip would overwrite the same file from mod1.zip"
 
+echo "Testing list"
+#$run list -f > expected/list.txt
+diff -u expected/list.txt <($run list --files)
+
 echo "Testing check"
 $run check
 # Mess with the backup files, the game files,

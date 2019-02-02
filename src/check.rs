@@ -9,7 +9,7 @@ use crate::journal::*;
 use crate::profile::*;
 use crate::usage::*;
 
-static USAGE: &str = r#"Usage: modman check [options]
+static USAGE: &str = r#"Usage: modman check
 
 Check for possible problems with installed mods and backed up files.
 "#;
