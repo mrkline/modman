@@ -53,7 +53,7 @@ out=$(! $run init --root rootdir 2>&1)
 echo "$out" | grep -q "Please move or remove it."
 mv modman.profile.tmp modman.profile
 
-echo "Activating mod1"
+echo "Activating a ZIP mod (mod1)"
 $run activate mod1.zip
 #cp modman.profile expected/mod1.profile
 #backupsums > expected/mod1.backup
@@ -61,6 +61,15 @@ $run activate mod1.zip
 diff -u modman.profile expected/mod1.profile
 diff -u expected/mod1.backup <(backupsums)
 diff -u expected/mod1.root <(rootsums)
+
+echo "Activating a directory mod (mod2)"
+$run activate mod2
+#cp modman.profile expected/mod2.profile
+#backupsums > expected/mod2.backup
+#rootsums > expected/mod2.root
+diff -u modman.profile expected/mod2.profile
+diff -u expected/mod2.backup <(backupsums)
+diff -u expected/mod2.root <(rootsums)
 
 echo "Testing activation failure when adding the same mod twice"
 out=$(! $run activate mod1.zip 2>&1)

@@ -8,12 +8,13 @@ use log::*;
 
 mod activate;
 mod check;
+mod dir_mod;
 mod encoding;
 mod file_utils;
 mod hash_serde;
 mod init;
-mod list;
 mod journal;
+mod list;
 mod modification;
 mod profile;
 mod usage;

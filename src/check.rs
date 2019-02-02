@@ -1,4 +1,3 @@
-use std::fs::*;
 use std::path::{Path, PathBuf};
 
 use failure::*;
@@ -68,41 +67,6 @@ fn check_for_journal() -> bool {
     }
 }
 
-fn collect_file_paths_in_backup() -> Fallible<Vec<PathBuf>> {
-    let mut ret = Vec::new();
-    backup_dir_walker(Path::new(BACKUP_PATH), &mut ret)?;
-    Ok(ret)
-}
-
-fn backup_dir_walker(dir: &Path, file_list: &mut Vec<PathBuf>) -> Fallible<()> {
-    let dir_iter = read_dir(dir).map_err(|e| {
-        e.context(format!(
-            "Could not read directory {}",
-            dir.to_string_lossy()
-        ))
-    })?;
-    for entry in dir_iter {
-        let entry = entry?;
-        let ft = entry.file_type()?;
-        if ft.is_dir() {
-            backup_dir_walker(&entry.path(), file_list)?;
-        } else if ft.is_file() {
-            let entry_path = entry.path();
-            let mod_path = entry_path.strip_prefix(BACKUP_PATH)?;
-            file_list.push(mod_path.to_owned());
-        }
-        // We shouldn't find any symbolic links or other unusual things
-        // in our backup directory:
-        else {
-            return Err(format_err!(
-                "{} isn't a file or a directory",
-                entry.path().to_string_lossy()
-            ));
-        }
-    }
-    Ok(())
-}
-
 /// Returns the mod_file_paths that aren't mentioned in the profile
 /// or the journal.
 fn collect_unknown_files(
@@ -126,7 +90,7 @@ fn collect_unknown_files(
 
 /// Checks for unknown files, and returns false if any are found.
 fn find_unknown_files(p: &Profile) -> Fallible<bool> {
-    let backed_up_files = collect_file_paths_in_backup()?;
+    let backed_up_files = collect_file_paths_in_dir(Path::new(BACKUP_PATH))?;
 
     let mut ret = true;
 

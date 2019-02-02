@@ -22,10 +22,12 @@ pub struct ZipMod {
     cached_paths: Vec<PathBuf>,
 
     v: Version,
+
+    r: String,
 }
 
 impl ZipMod {
-    pub fn new<P: AsRef<Path>>(path: P) -> Fallible<Self> {
+    pub fn new(path: &Path) -> Fallible<Self> {
         let file = File::open(path)?;
         // We'll be doing lots of seeking, so let's memory map the file
         // to save on all the read calls we'd do otherwise.
@@ -38,9 +40,10 @@ impl ZipMod {
             .read_to_string(&mut version_string)?;
         let v = Version::parse(&version_string).context("Couldn't parse version string")?;
 
-        // TODO: Should we demand that it contain something?
+        let mut r = String::new();
         z.by_name("README.txt")
-            .context("Couldn't find README.txt")?;
+            .context("Couldn't find README.txt")?
+            .read_to_string(&mut r)?;
 
         let mut cached_paths = collect_file_paths(&mut z)?;
 
@@ -51,6 +54,7 @@ impl ZipMod {
             base_dir,
             cached_paths,
             v,
+            r,
         })
     }
 }
@@ -83,6 +87,10 @@ impl Mod for ZipMod {
 
     fn version(&self) -> &Version {
         &self.v
+    }
+
+    fn readme(&self) -> &str {
+        &self.r
     }
 }
 

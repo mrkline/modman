@@ -3,3 +3,6 @@ mod1.zip
 	B.txt
 	C.txt
 	newdir/N.txt
+mod2
+	newdir/newsubdir/A.txt
+	newdir/newsubdir/B.txt

@@ -1,4 +1,3 @@
-
 use failure::*;
 
 use crate::profile::*;
@@ -11,11 +10,7 @@ List installed mods and (optionally) their files.
 
 pub fn list_command(args: &[String]) -> Fallible<()> {
     let mut opts = getopts::Options::new();
-    opts.optflag(
-        "f",
-        "files",
-        "List the files installed by each mod.",
-    );
+    opts.optflag("f", "files", "List the files installed by each mod.");
 
     if args.len() == 1 && args[0] == "help" {
         print_usage(USAGE, &opts);

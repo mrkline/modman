@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use failure::*;
 use semver::Version;
 
+use crate::dir_mod::*;
 use crate::zip_mod::*;
 
 pub trait Mod {
@@ -20,6 +21,8 @@ pub trait Mod {
     fn read_file<'a>(&'a mut self, p: &Path) -> Fallible<Box<dyn Read + 'a>>;
 
     fn version(&self) -> &Version;
+
+    fn readme(&self) -> &str;
 }
 
 pub fn open_mod(p: &Path) -> Fallible<Box<dyn Mod>> {
@@ -31,7 +34,14 @@ pub fn open_mod(p: &Path) -> Fallible<Box<dyn Mod>> {
         let z = ZipMod::new(p)
             .map_err(|e| e.context(format!("Trouble reading {}", p.to_string_lossy())))?;
         Ok(Box::new(z))
+    } else if stat.is_dir() {
+        let d = DirectoryMod::new(p)
+            .map_err(|e| e.context(format!("Trouble reading{}", p.to_string_lossy())))?;
+        Ok(Box::new(d))
     } else {
-        panic!("Directory mods aren't implemented yet.");
+        Err(format_err!(
+            "Couldn't open mod {}: not a file or a directory.",
+            p.to_string_lossy()
+        ))
     }
 }
