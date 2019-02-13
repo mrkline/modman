@@ -1,8 +1,12 @@
-mod1.zip
+mod1.zip (v1.2.3)
+I'm mod1!
+
 	A.txt
 	B.txt
 	C.txt
 	newdir/N.txt
-mod2
+mod2 (v0.0.1-pre-lol)
+I'm another mod, that installs a new directory of new files.
+
 	newdir/newsubdir/A.txt
 	newdir/newsubdir/B.txt
