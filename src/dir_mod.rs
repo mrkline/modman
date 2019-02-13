@@ -66,6 +66,10 @@ impl DirectoryMod {
             };
         }
 
+        if version_info.is_none() { return Err(format_err!("Couldn't find VERSION.txt")); }
+        if readme.is_none() { return Err(format_err!("Couldn't find README.txt")); }
+        if base_dir.is_none() { return Err(format_err!("Couldn't find a base directory")); }
+
         Ok(DirectoryMod {
             base_dir: base_dir.unwrap(),
             v: version_info.unwrap(),
