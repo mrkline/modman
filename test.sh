@@ -54,7 +54,7 @@ echo "$out" | grep -q "Please move or remove it."
 mv modman.profile.tmp modman.profile
 
 echo "Activating a ZIP mod (mod1)"
-$run activate mod1.zip
+$run -vvv activate mod1.zip
 #cp modman.profile expected/mod1.profile
 #backupsums > expected/mod1.backup
 #rootsums > expected/mod1.root
@@ -101,10 +101,8 @@ cp mod1/modroot/A.txt rootdir/A.txt
 $run check
 
 
-## TODO: deactivate. For now, do it manually, with shell
-rm -r rootdir/*
-mv modman-backup/originals/* rootdir
-cp expected/empty.profile modman.profile
+echo "Testing deactivate"
+$run -vvv deactivate mod1.zip mod2
 # Will actually be meaningful once deactivate is done.
 diff -u modman.profile expected/empty.profile
 diff -u expected/empty.backup <(backupsums)

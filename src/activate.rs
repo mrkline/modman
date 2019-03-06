@@ -64,9 +64,7 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
     }
 
     if dry_run {
-        serde_json::ser::to_writer_pretty(std::io::stdout().lock(), &p)
-            .context("Couldn't serialize profile to JSON")?;
-        println!();
+        print_profile(&p)?;
     }
 
     Ok(())

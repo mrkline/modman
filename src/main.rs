@@ -8,6 +8,7 @@ use log::*;
 
 mod activate;
 mod check;
+mod deactivate;
 mod dir_mod;
 mod encoding;
 mod file_utils;
@@ -23,6 +24,7 @@ mod zip_mod;
 
 use crate::activate::*;
 use crate::check::*;
+use crate::deactivate::*;
 use crate::init::*;
 use crate::list::*;
 use crate::usage::*;
@@ -106,6 +108,7 @@ fn do_it() -> Fallible<()> {
 
     match free_args[0].as_ref() {
         "activate" => activate_command(&free_args[1..]),
+        "deactivate" => deactivate_command(&free_args[1..]),
         "check" => check_command(&free_args[1..]),
         "list" => list_command(&free_args[1..]),
         "init" => init_command(&free_args[1..]),

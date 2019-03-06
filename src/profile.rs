@@ -150,6 +150,13 @@ pub fn update_profile_file(p: &Profile) -> Fallible<()> {
     Ok(())
 }
 
+pub fn print_profile(p: &Profile) -> Fallible<()> {
+    serde_json::ser::to_writer_pretty(std::io::stdout().lock(), &p)
+        .context("Couldn't serialize profile to JSON")?;
+    println!();
+    Ok(())
+}
+
 /// Given a relative mod file path,
 /// return its game file path, i.e., it appended to the profile's root directory.
 pub fn mod_path_to_game_path(mod_path: &Path, profile: &Profile) -> PathBuf {

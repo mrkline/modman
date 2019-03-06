@@ -88,3 +88,16 @@ fn dir_walker(base_dir: &Path, dir: &Path, file_list: &mut Vec<PathBuf>) -> Fall
     }
     Ok(())
 }
+
+pub fn remove_empty_parents(mut p: &Path) -> Fallible<()> {
+    while let Some(parent) = p.parent() {
+        // Kludge: Avoid removing BACKUP_PATH entirely on a clean sweep.
+        if *parent == *Path::new(crate::profile::BACKUP_PATH) || read_dir(&parent)?.count() > 0 {
+            break;
+        }
+        debug!("Removing empty directory {}", parent.to_string_lossy());
+        remove_dir(&parent)?;
+        p = parent;
+    }
+    Ok(())
+}
