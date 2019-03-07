@@ -110,7 +110,7 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
                 warn!("{} was already removed!", game_path.to_string_lossy());
                 Ok(())
             } else {
-                Err(e)
+                Err(e.context(format!("Couldn't remove {}", game_path.to_string_lossy())))
             }
         })?;
         remove_empty_parents(&game_path)?;
@@ -124,7 +124,8 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
     {
         let backup_path = mod_path_to_backup_path(file);
         debug!("Removing {}", backup_path.to_string_lossy());
-        remove_file(&backup_path)?;
+        remove_file(&backup_path)
+            .map_err(|e| e.context(format!("Couldn't remove {}", backup_path.to_string_lossy())))?;
         remove_empty_parents(&backup_path)?;
     }
 

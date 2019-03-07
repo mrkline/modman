@@ -96,7 +96,12 @@ pub fn remove_empty_parents(mut p: &Path) -> Fallible<()> {
             break;
         }
         debug!("Removing empty directory {}", parent.to_string_lossy());
-        remove_dir(&parent)?;
+        remove_dir(&parent).map_err(|e| {
+            e.context(format!(
+                "Couldn't remove empty directory {}",
+                parent.to_string_lossy()
+            ))
+        })?;
         p = parent;
     }
     Ok(())
