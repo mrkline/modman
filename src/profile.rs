@@ -138,7 +138,7 @@ pub fn update_profile_file(p: &Profile) -> Fallible<()> {
     drop(temp_file);
 
     // 3. Rename it to the real deal.
-    trace!("Moving updated profile to {}", PROFILE_PATH);
+    trace!("Renaming updated profile to {}", PROFILE_PATH);
     rename(&temp_filename, PROFILE_PATH).map_err(|e| {
         e.context(format!(
             "Couldn't rename {} to {}.",

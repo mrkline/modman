@@ -35,8 +35,12 @@ pub fn open_mod(p: &Path) -> Fallible<Box<dyn Mod>> {
             .map_err(|e| e.context(format!("Trouble reading mod file {}", p.to_string_lossy())))?;
         Ok(Box::new(z))
     } else if stat.is_dir() {
-        let d = DirectoryMod::new(p)
-            .map_err(|e| e.context(format!("Trouble reading mod directory {}", p.to_string_lossy())))?;
+        let d = DirectoryMod::new(p).map_err(|e| {
+            e.context(format!(
+                "Trouble reading mod directory {}",
+                p.to_string_lossy()
+            ))
+        })?;
         Ok(Box::new(d))
     } else {
         Err(format_err!(

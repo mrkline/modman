@@ -119,13 +119,23 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
 
         // Open and hash the mod file.
         // If this isn't a dry run, overwrite the game file.
-
+        let full_mod_path: String = mod_path
+            .join(mod_file_path.as_path())
+            .to_string_lossy()
+            .into_owned();
         let mut mod_file_reader = BufReader::new(m.read_file(&mod_file_path)?);
         let mod_hash = if dry_run {
             // We don't need to write the mod file anywhere, so just hash it.
             hash_contents(&mut mod_file_reader)
         } else {
             let game_file_path = mod_path_to_game_path(&mod_file_path, &p);
+
+            trace!(
+                "Hashing and copying {} to {}",
+                full_mod_path,
+                game_file_path.to_string_lossy()
+            );
+
             // Create any needed directory structure.
             let game_file_dir = game_file_path.parent().unwrap();
             create_dir_all(&game_file_dir).map_err(|e| {
@@ -145,11 +155,7 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
             hash_and_write(&mut mod_file_reader, &mut game_file)
         }?;
 
-        trace!(
-            "Mod file {} hashed to\n{:x}",
-            mod_path.join(mod_file_path.as_path()).to_string_lossy(),
-            mod_hash.bytes
-        );
+        trace!("Mod file {} hashed to\n{:x}", full_mod_path, mod_hash.bytes);
 
         let meta = ModFileMetadata {
             mod_hash,
@@ -232,12 +238,13 @@ fn try_hash_and_backup(
             let mut br = BufReader::new(game_file);
 
             let hash = if !dry_run {
+                debug!("Backing up {}", game_file_path.to_string_lossy());
                 hash_and_backup(mod_file_path, &mut br)
             } else {
                 hash_contents(&mut br)
             }?;
             trace!(
-                "Original file {} hashed to\n{:x}",
+                "Game file {} hashed to\n{:x}",
                 game_file_path.to_string_lossy(),
                 hash.bytes
             );
@@ -250,9 +257,8 @@ fn try_hash_and_backup(
 /// backup said game file and return its hash.
 fn hash_and_backup<R: BufRead>(mod_file_path: &Path, reader: &mut R) -> Fallible<FileHash> {
     // First, copy the file to a temporary location, hashing it as we go.
-    let hnt = hash_and_write_temporary(mod_file_path, reader)?;
-
-    let temp_file_path = hnt.temp_file_path;
+    let temp_file_path = mod_path_to_temp_path(mod_file_path);
+    let temp_hash = hash_and_write_temporary(&temp_file_path, reader)?;
 
     // Next, create any needed directory structure.
     let mut backup_file_dir = PathBuf::from(BACKUP_PATH);
@@ -294,8 +300,8 @@ fn hash_and_backup<R: BufRead>(mod_file_path: &Path, reader: &mut R) -> Fallible
         ));
     }
 
-    debug!(
-        "Moving {} to {}",
+    trace!(
+        "Renaming {} to {}",
         temp_file_path.to_string_lossy(),
         backup_path.to_string_lossy(),
     );
@@ -310,26 +316,18 @@ fn hash_and_backup<R: BufRead>(mod_file_path: &Path, reader: &mut R) -> Fallible
         ))
     })?;
 
-    Ok(hnt.hash)
+    Ok(temp_hash)
 }
 
-struct HashedFile {
-    hash: FileHash,
-    temp_file_path: PathBuf,
-}
-
-/// Given a mod file's path and a buffered reader of the game file it's replacing,
+/// Given a path for a temporary file and a buffered reader of the game file it's replacing,
 /// copy the game file to our temp directory,
-/// then return its hash and the temp path.
+/// then return its hash
 fn hash_and_write_temporary<R: BufRead>(
-    mod_file_path: &Path,
+    temp_file_path: &Path,
     reader: &mut R,
-) -> Fallible<HashedFile> {
-    let temp_file_path = mod_path_to_temp_path(mod_file_path);
-
-    debug!(
-        "Copying {} to {}",
-        mod_file_path.to_string_lossy(),
+) -> Fallible<FileHash> {
+    trace!(
+        "Hashing and copying to temp file {}",
         temp_file_path.to_string_lossy()
     );
 
@@ -352,8 +350,5 @@ fn hash_and_write_temporary<R: BufRead>(
         ))
     })?;
 
-    Ok(HashedFile {
-        hash,
-        temp_file_path,
-    })
+    Ok(hash)
 }
