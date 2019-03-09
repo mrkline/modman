@@ -7,7 +7,7 @@ set -e
 
 cd test
 
-run='cargo run -q -- '
+run='cargo run -q -- -vvv'
 
 rootsums()
 {

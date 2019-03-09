@@ -54,6 +54,8 @@ pub enum JournalAction {
 pub type JournalMap = BTreeMap<PathBuf, JournalAction>;
 
 pub fn read_journal() -> Fallible<JournalMap> {
+    // Could be Result::or_else except we want to return from the
+    // function inside the Err arm.
     let f = match File::open(get_journal_path()) {
         Ok(f) => f,
         Err(open_err) =>
@@ -128,13 +130,12 @@ impl ActivationJournal {
             .create_new(true)
             .open(get_journal_path())
             .map_err(|e| {
-                let jp = get_journal_path().to_string_lossy().to_string();
                 if e.kind() == std::io::ErrorKind::AlreadyExists {
                     format_err!(
                         "An activation journal already exists at {}.\n\
                          If a previous run of `modman activate` was interrupted,\n\
                          run `modman repair`.",
-                        jp
+                        get_journal_path().to_string_lossy()
                     )
                 } else {
                     Error::from(e.context("Couldn't create activation journal"))

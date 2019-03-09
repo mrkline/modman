@@ -33,16 +33,9 @@ pub fn check_command(args: &[String]) -> Fallible<()> {
 
     let mut ok = true;
 
-    info!("Checking if `modman activate` was interrupted...");
     ok &= check_for_journal();
-
-    info!("Checking for unknown files...");
     ok &= find_unknown_files(&p)?;
-
-    info!("Verifying backup files...");
     ok &= verify_backups(&p)?;
-
-    info!("Verifying installed mod files...");
     ok &= verify_installed_mod_files(&p)?;
 
     if ok {
@@ -53,6 +46,7 @@ pub fn check_command(args: &[String]) -> Fallible<()> {
 }
 
 fn check_for_journal() -> bool {
+    info!("Checking if `modman activate` was interrupted...");
     if crate::journal::get_journal_path().exists() {
         warn!(
             "A journal file was found in the backup directory.\n\
@@ -90,6 +84,7 @@ fn collect_unknown_files(
 
 /// Checks for unknown files, and returns false if any are found.
 fn find_unknown_files(p: &Profile) -> Fallible<bool> {
+    info!("Checking for unknown files...");
     let backed_up_files = collect_file_paths_in_dir(Path::new(BACKUP_PATH))?;
 
     let mut ret = true;
@@ -116,6 +111,7 @@ fn find_unknown_files(p: &Profile) -> Fallible<bool> {
 /// Verifies integrity of backup files,
 /// and returns false if any fail their check.
 fn verify_backups(p: &Profile) -> Fallible<bool> {
+    info!("Verifying backup files...");
     let mut ret = true;
 
     for manifest in p.mods.values() {
@@ -152,6 +148,7 @@ fn verify_backups(p: &Profile) -> Fallible<bool> {
 /// Verifies integrity of installed mod files,
 /// and returns false if any fail their check.
 fn verify_installed_mod_files(p: &Profile) -> Fallible<bool> {
+    info!("Verifying installed mod files...");
     let mut ret = true;
 
     for manifest in p.mods.values() {
