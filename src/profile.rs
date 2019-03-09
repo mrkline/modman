@@ -159,8 +159,8 @@ pub fn print_profile(p: &Profile) -> Fallible<()> {
 
 /// Given a relative mod file path,
 /// return its game file path, i.e., it appended to the profile's root directory.
-pub fn mod_path_to_game_path(mod_path: &Path, profile: &Profile) -> PathBuf {
-    profile.root_directory.join(mod_path)
+pub fn mod_path_to_game_path(mod_path: &Path, root_directory: &Path) -> PathBuf {
+    root_directory.join(mod_path)
 }
 
 /// Given a relative mod file path,

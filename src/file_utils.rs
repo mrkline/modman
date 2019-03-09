@@ -6,13 +6,113 @@ use failure::*;
 use log::*;
 use sha2::*;
 
-use crate::profile::FileHash;
+use crate::profile::*;
 
 pub fn hash_file(path: &Path) -> Fallible<FileHash> {
     trace!("Hashing {}", path.to_string_lossy());
     let f = std::fs::File::open(&path)
         .map_err(|e| e.context(format!("Couldn't open {}", path.to_string_lossy())))?;
     hash_contents(&mut std::io::BufReader::new(f))
+}
+
+/// Given a mod file's path and a reader of the game file it's replacing,
+/// backup said game file and return its hash.
+pub fn hash_and_backup<R: BufRead>(mod_file_path: &Path, reader: &mut R) -> Fallible<FileHash> {
+    // First, copy the file to a temporary location, hashing it as we go.
+    let temp_file_path = mod_path_to_temp_path(mod_file_path);
+    let temp_hash = hash_and_write_temporary(&temp_file_path, reader)?;
+
+    // Next, create any needed directory structure.
+    let mut backup_file_dir = PathBuf::from(BACKUP_PATH);
+    if let Some(parent) = mod_file_path.parent() {
+        backup_file_dir.push(parent);
+    }
+    create_dir_all(&backup_file_dir).map_err(|e| {
+        e.context(format!(
+            "Couldn't create directory {}",
+            backup_file_dir.to_string_lossy()
+        ))
+    })?;
+
+    let backup_path = backup_file_dir.join(mod_file_path.file_name().unwrap());
+    debug_assert!(backup_path == mod_path_to_backup_path(mod_file_path));
+
+    // Fail if the file already exists.
+    // (This is a good sign that a previous run was interrupted
+    // and the user should try to restore the backed up files.)
+    //
+    // stat() then rename() seems like a classic TOCTOU blunder
+    // (https://en.wikipedia.org/wiki/Time_of_check_to_time_of_use),
+    // but:
+    //
+    // 1. If someone comes in and replaces the contents of
+    //    backup_path between this next line and the rename() call,
+    //    it's safe to assume that the data in there is gone anyways.
+    //
+    // 2. Rust (and even POSIX, for that matter) doesn't provide a
+    //    cross-platform approach to fail a rename if the destination
+    //    already exists, so we'd have to write OS-specific code for
+    //    Linux, Windows, and <other POSIX friends>.
+    if backup_path.exists() {
+        // TODO: Offer corrective action once `modman rescue`
+        // or whatever we want to call it exists.
+        return Err(format_err!(
+            "{} already exists (was `modman activate` previously interrupted?)",
+            backup_path.to_string_lossy()
+        ));
+    }
+
+    trace!(
+        "Renaming {} to {}",
+        temp_file_path.to_string_lossy(),
+        backup_path.to_string_lossy(),
+    );
+
+    // Move the backup from the temporary location to its final spot
+    // in the backup directory.
+    rename(&temp_file_path, &backup_path).map_err(|e| {
+        e.context(format!(
+            "Couldn't rename {} to {}",
+            temp_file_path.to_string_lossy(),
+            backup_path.to_string_lossy()
+        ))
+    })?;
+
+    Ok(temp_hash)
+}
+
+/// Given a path for a temporary file and a buffered reader of the game file it's replacing,
+/// copy the game file to our temp directory,
+/// then return its hash
+fn hash_and_write_temporary<R: BufRead>(
+    temp_file_path: &Path,
+    reader: &mut R,
+) -> Fallible<FileHash> {
+    trace!(
+        "Hashing and copying to temp file {}",
+        temp_file_path.to_string_lossy()
+    );
+
+    // Because it's a temp file, we're fine if this truncates an existing file.
+    let mut temp_file = File::create(&temp_file_path).map_err(|e| {
+        e.context(format!(
+            "Couldn't create {}",
+            temp_file_path.to_string_lossy()
+        ))
+    })?;
+
+    let hash = hash_and_write(reader, &mut temp_file)?;
+
+    // sync() is a dirty lie on modern OSes and drives,
+    // but do what we can to make sure the data actually made it to disk.
+    temp_file.sync_data().map_err(|e| {
+        e.context(format!(
+            "Couldn't sync {}",
+            temp_file_path.to_string_lossy()
+        ))
+    })?;
+
+    Ok(hash)
 }
 
 /// Hash data from the given buffered reader.

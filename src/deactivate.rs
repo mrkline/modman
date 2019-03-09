@@ -100,7 +100,7 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
         .iter()
         .filter(|(_f, m)| m.original_hash.is_none())
     {
-        let game_path = mod_path_to_game_path(file, p);
+        let game_path = mod_path_to_game_path(file, &p.root_directory);
         debug!("Removing {}", game_path.to_string_lossy());
         // Keep moving if it's already gone,
         // which gets us to step 3 if a previous run of deactivate
@@ -142,7 +142,7 @@ fn restore_file_from_backup(
     assert!(mod_meta.original_hash.is_some());
 
     let backup_path = mod_path_to_backup_path(mod_path);
-    let game_path = mod_path_to_game_path(mod_path, p);
+    let game_path = mod_path_to_game_path(mod_path, &p.root_directory);
     debug!(
         "Restoring {} to {}",
         backup_path.to_string_lossy(),

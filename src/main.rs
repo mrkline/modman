@@ -18,6 +18,7 @@ mod journal;
 mod list;
 mod modification;
 mod profile;
+mod update;
 mod usage;
 mod version_serde;
 mod zip_mod;
@@ -27,6 +28,7 @@ use crate::check::*;
 use crate::deactivate::*;
 use crate::init::*;
 use crate::list::*;
+use crate::update::*;
 use crate::usage::*;
 
 static USAGE: &str = r#"Usage: modman [options] <command> [command options]
@@ -110,9 +112,10 @@ fn do_it() -> Fallible<()> {
         "activate" => activate_command(&free_args[1..]),
         "deactivate" => deactivate_command(&free_args[1..]),
         "check" => check_command(&free_args[1..]),
-        "list" => list_command(&free_args[1..]),
-        "init" => init_command(&free_args[1..]),
         "help" => print_usage(USAGE, &opts),
+        "init" => init_command(&free_args[1..]),
+        "list" => list_command(&free_args[1..]),
+        "update" => update_command(&free_args[1..]),
         wut => {
             eprintln!("Unknown command: {}", wut);
             eprint_usage(USAGE, &opts);

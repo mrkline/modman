@@ -116,13 +116,15 @@ fn verify_backups(p: &Profile) -> Fallible<bool> {
 
     for manifest in p.mods.values() {
         for (mod_path, metadata) in &manifest.files {
+            let mod_path: &Path = &**mod_path;
+
             // If there was no backup, there's nothing to check.
             if metadata.original_hash.is_none() {
                 continue;
             }
             let original_hash = &metadata.original_hash.unwrap();
 
-            let backup_path = mod_path_to_backup_path(&**mod_path);
+            let backup_path = mod_path_to_backup_path(mod_path);
             let backup_hash = hash_file(&backup_path)?;
             if backup_hash != *original_hash {
                 debug!(
@@ -153,7 +155,7 @@ fn verify_installed_mod_files(p: &Profile) -> Fallible<bool> {
 
     for manifest in p.mods.values() {
         for (mod_path, metadata) in &manifest.files {
-            let game_path = mod_path_to_game_path(&**mod_path, p);
+            let game_path = mod_path_to_game_path(&**mod_path, &p.root_directory);
             let game_hash = hash_file(&game_path)?;
             if game_hash != metadata.mod_hash {
                 debug!(
