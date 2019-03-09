@@ -1,0 +1,3 @@
+1. Have a set of fs:: ops that wrap them in `.context()`?
+   We currently do that each time in the various files that use them.
+   Do we need to be this specialized?
