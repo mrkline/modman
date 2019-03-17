@@ -100,11 +100,38 @@ mv modman-backup/originals/wut.txt modman-backup/originals/A.txt
 cp mod1/modroot/A.txt rootdir/A.txt
 $run check
 
+echo "TODO: repair"
+
+echo "Testing update with version mismatch"
+echo "1.2.3" > mod2/VERSION.txt
+out=$(! $run update 2>&1)
+echo "$out" | grep -q "mod2's version ([1-9.]\+) doesn't match what it was"
+git checkout -- mod2/VERSION.txt
+
+echo "Testing no-op update"
+$run update
+diff -u modman.profile expected/mod2.profile
+diff -u expected/mod2.backup <(backupsums)
+diff -u expected/mod2.root <(rootsums)
+
+echo "Testing update"
+echo "I am the latest and greatest version of B." > rootdir/B.txt
+echo "I am a new game file replacing the mod file, C." > rootdir/C.txt
+$run update
+backupsums > expected/updated.backup
+rootsums > expected/updated.root
+diff -u expected/updated.backup <(backupsums)
+diff -u expected/updated.root <(rootsums)
 
 echo "Testing deactivate"
-$run -vvv deactivate mod1.zip mod2
-# Will actually be meaningful once deactivate is done.
+$run deactivate mod1.zip mod2
 diff -u modman.profile expected/empty.profile
 diff -u expected/empty.backup <(backupsums)
+# We expect the "updates" applied above to persist through deactivate.
+diff -u <(echo "I am the latest and greatest version of B.") rootdir/B.txt
+diff -u <(echo "I am a new game file replacing the mod file, C.") rootdir/C.txt
+# Then reset them to how they started
+git checkout -- rootdir/B.txt
+rm rootdir/C.txt
 
 echo "All tests passed!"

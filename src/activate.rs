@@ -238,7 +238,7 @@ fn try_hash_and_backup(
 
             let hash = if !dry_run {
                 debug!("Backing up {}", game_file_path.to_string_lossy());
-                hash_and_backup(mod_file_path, &mut br)
+                hash_and_backup(mod_file_path, &mut br, BackupBehavior::FirstBackup)
             } else {
                 hash_contents(&mut br)
             }?;

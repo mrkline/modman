@@ -15,9 +15,15 @@ pub fn hash_file(path: &Path) -> Fallible<FileHash> {
     hash_contents(&mut std::io::BufReader::new(f))
 }
 
+#[derive(PartialEq, Eq, Debug)]
+pub enum BackupBehavior {
+    FirstBackup,
+    ReplaceExisting
+}
+
 /// Given a mod file's path and a reader of the game file it's replacing,
 /// backup said game file and return its hash.
-pub fn hash_and_backup<R: BufRead>(mod_file_path: &Path, reader: &mut R) -> Fallible<FileHash> {
+pub fn hash_and_backup<R: BufRead>(mod_file_path: &Path, reader: &mut R, behavior: BackupBehavior) -> Fallible<FileHash> {
     // First, copy the file to a temporary location, hashing it as we go.
     let temp_file_path = mod_path_to_temp_path(mod_file_path);
     let temp_hash = hash_and_write_temporary(&temp_file_path, reader)?;
@@ -37,7 +43,7 @@ pub fn hash_and_backup<R: BufRead>(mod_file_path: &Path, reader: &mut R) -> Fall
     let backup_path = backup_file_dir.join(mod_file_path.file_name().unwrap());
     debug_assert!(backup_path == mod_path_to_backup_path(mod_file_path));
 
-    // Fail if the file already exists.
+    // Fail if the file already exists and we don't expect it.
     // (This is a good sign that a previous run was interrupted
     // and the user should try to restore the backed up files.)
     //
@@ -53,7 +59,7 @@ pub fn hash_and_backup<R: BufRead>(mod_file_path: &Path, reader: &mut R) -> Fall
     //    cross-platform approach to fail a rename if the destination
     //    already exists, so we'd have to write OS-specific code for
     //    Linux, Windows, and <other POSIX friends>.
-    if backup_path.exists() {
+    if behavior == BackupBehavior::FirstBackup && backup_path.exists() {
         // TODO: Offer corrective action once `modman rescue`
         // or whatever we want to call it exists.
         return Err(format_err!(
@@ -116,7 +122,7 @@ fn hash_and_write_temporary<R: BufRead>(
 }
 
 /// Hash data from the given buffered reader.
-/// Used for dry runs where we want to compute hashes but skip backups.
+/// Mostly used for dry runs where we want to compute hashes but skip backups.
 /// (See hash_and_backup() for the real deal.)
 pub fn hash_contents<R: BufRead>(reader: &mut R) -> Fallible<FileHash> {
     let mut hasher = Sha224::new();
@@ -190,9 +196,11 @@ fn dir_walker(base_dir: &Path, dir: &Path, file_list: &mut Vec<PathBuf>) -> Fall
 }
 
 pub fn remove_empty_parents(mut p: &Path) -> Fallible<()> {
+    let backup_path = Path::new(crate::profile::BACKUP_PATH);
+
     while let Some(parent) = p.parent() {
         // Kludge: Avoid removing BACKUP_PATH entirely on a clean sweep.
-        if *parent == *Path::new(crate::profile::BACKUP_PATH) || read_dir(&parent)?.count() > 0 {
+        if *parent == *backup_path || read_dir(&parent)?.count() > 0 {
             break;
         }
         debug!("Removing empty directory {}", parent.to_string_lossy());
