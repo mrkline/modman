@@ -15,6 +15,12 @@ pub fn hash_file(path: &Path) -> Fallible<FileHash> {
     hash_contents(&mut std::io::BufReader::new(f))
 }
 
+/// Used to specify different behaviors for hash_and_backup
+/// depending on whether we're installing a mod or updating backups
+/// (`modman activate` vs `modman update`).
+/// The two share enough functionality to put common behavior into
+/// hash_and_backup, but the former should error out if a file already exists
+/// at the destination.
 #[derive(PartialEq, Eq, Debug)]
 pub enum BackupBehavior {
     FirstBackup,
