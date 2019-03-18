@@ -191,7 +191,11 @@ fn hash_and_backup_file(mod_file_path: &Path, root_directory: &Path) -> Fallible
     })?;
 
     debug!("Backing up {}", game_file_path.to_string_lossy());
-    let hash = hash_and_backup(mod_file_path, &mut BufReader::new(game_file), BackupBehavior::ReplaceExisting)?;
+    let hash = hash_and_backup(
+        mod_file_path,
+        &mut BufReader::new(game_file),
+        BackupBehavior::ReplaceExisting,
+    )?;
 
     trace!(
         "Game file {} hashed to\n{:x}",

@@ -18,12 +18,16 @@ pub fn hash_file(path: &Path) -> Fallible<FileHash> {
 #[derive(PartialEq, Eq, Debug)]
 pub enum BackupBehavior {
     FirstBackup,
-    ReplaceExisting
+    ReplaceExisting,
 }
 
 /// Given a mod file's path and a reader of the game file it's replacing,
 /// backup said game file and return its hash.
-pub fn hash_and_backup<R: BufRead>(mod_file_path: &Path, reader: &mut R, behavior: BackupBehavior) -> Fallible<FileHash> {
+pub fn hash_and_backup<R: BufRead>(
+    mod_file_path: &Path,
+    reader: &mut R,
+    behavior: BackupBehavior,
+) -> Fallible<FileHash> {
     // First, copy the file to a temporary location, hashing it as we go.
     let temp_file_path = mod_path_to_temp_path(mod_file_path);
     let temp_hash = hash_and_write_temporary(&temp_file_path, reader)?;
