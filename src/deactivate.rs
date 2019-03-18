@@ -88,7 +88,7 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
         .iter()
         .filter(|(_f, m)| m.original_hash.is_some())
     {
-        restore_file_from_backup(file, meta, p)?;
+        restore_file_from_backup(file, meta, &p.root_directory)?;
         // Wait until step 3 to start removing the backups
         // so that we don't mess with backups until
         // the game directory is as it started.
@@ -137,12 +137,12 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
 fn restore_file_from_backup(
     mod_path: &Path,
     mod_meta: &ModFileMetadata,
-    p: &Profile,
+    root_directory: &Path,
 ) -> Fallible<()> {
     assert!(mod_meta.original_hash.is_some());
 
     let backup_path = mod_path_to_backup_path(mod_path);
-    let game_path = mod_path_to_game_path(mod_path, &p.root_directory);
+    let game_path = mod_path_to_game_path(mod_path, root_directory);
     debug!(
         "Restoring {} to {}",
         backup_path.to_string_lossy(),

@@ -23,11 +23,19 @@ pub enum BackupBehavior {
 
 /// Given a mod file's path and a reader of the game file it's replacing,
 /// backup said game file and return its hash.
+/// The game file path is provided to print a uniform debug message,
+/// but we take a reader instead of opening the file in here because
+/// `modman activate` and `modman update` need to do different things.
+/// (The former makes a journal entry, and skips to the next file if we don't
+/// need to backup. The latter expects the file to exist.)
 pub fn hash_and_backup<R: BufRead>(
     mod_file_path: &Path,
+    game_file_path: &Path,
     reader: &mut R,
     behavior: BackupBehavior,
 ) -> Fallible<FileHash> {
+    debug!("Backing up {}", game_file_path.to_string_lossy());
+
     // First, copy the file to a temporary location, hashing it as we go.
     let temp_file_path = mod_path_to_temp_path(mod_file_path);
     let temp_hash = hash_and_write_temporary(&temp_file_path, reader)?;

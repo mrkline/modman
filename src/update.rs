@@ -122,7 +122,7 @@ fn update_file(
     let game_path = mod_path_to_game_path(mod_file_path, root_directory);
     let game_hash = hash_file(&game_path)?;
     if game_hash != metadata.mod_hash {
-        debug!(
+        trace!(
             "{} hashed to\n{:x},\nexpected {:x}",
             game_path.to_string_lossy(),
             game_hash.bytes,
@@ -141,6 +141,13 @@ fn update_file(
                 mod_file_path.to_string_lossy()
             );
         } else {
+            let game_file_path = mod_path_to_game_path(mod_file_path, root_directory);
+
+            info!(
+                "{} changed. Backing up new version and reinstalling mod file.",
+                game_file_path.to_string_lossy()
+            );
+
             let game_hash = hash_and_backup_file(mod_file_path, root_directory)?;
 
             // This is very simimlar to what `modman activate` is doing
@@ -150,7 +157,6 @@ fn update_file(
             // But should we factor them into a common function to their traces
             // and behavior in sync anyways?
             let mut mod_file_reader = BufReader::new(m.read_file(&mod_file_path)?);
-            let game_file_path = mod_path_to_game_path(mod_file_path, root_directory);
             let mut game_file = File::create(&game_file_path).map_err(|e| {
                 e.context(format!(
                     "Couldn't overwrite {}",
@@ -190,9 +196,9 @@ fn hash_and_backup_file(mod_file_path: &Path, root_directory: &Path) -> Fallible
         ))
     })?;
 
-    debug!("Backing up {}", game_file_path.to_string_lossy());
     let hash = hash_and_backup(
         mod_file_path,
+        &game_file_path,
         &mut BufReader::new(game_file),
         BackupBehavior::ReplaceExisting,
     )?;

@@ -129,8 +129,8 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
         } else {
             let game_file_path = mod_path_to_game_path(&mod_file_path, &p.root_directory);
 
-            trace!(
-                "Hashing and copying {} to {}",
+            debug!(
+                "Installing {} to {}",
                 full_mod_path,
                 game_file_path.to_string_lossy()
             );
@@ -237,8 +237,12 @@ fn try_hash_and_backup(
             let mut br = BufReader::new(game_file);
 
             let hash = if !dry_run {
-                debug!("Backing up {}", game_file_path.to_string_lossy());
-                hash_and_backup(mod_file_path, &mut br, BackupBehavior::FirstBackup)
+                hash_and_backup(
+                    mod_file_path,
+                    &game_file_path,
+                    &mut br,
+                    BackupBehavior::FirstBackup,
+                )
             } else {
                 hash_contents(&mut br)
             }?;
