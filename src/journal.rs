@@ -87,10 +87,7 @@ fn read_journal_line(line: String) -> Fallible<(PathBuf, JournalAction)> {
         .filter(|t| !t.is_empty())
         .collect();
     if tokens.len() != 2 {
-        return Err(format_err!(
-            "Couldn't understand activation journal line:\n{}",
-            line
-        ));
+        bail!("Couldn't understand activation journal line:\n{}", line);
     }
     match tokens[0] {
         "Add" => Ok((PathBuf::from(tokens[1]), JournalAction::Added)),

@@ -46,10 +46,10 @@ pub fn init_command(args: &[String]) -> Fallible<()> {
 
     let root_path = PathBuf::from(&matches.opt_str("root").unwrap());
     if !root_path.is_dir() {
-        return Err(format_err!(
+        bail!(
             "{} is not an existing directory!",
             root_path.to_string_lossy()
-        ));
+        );
     }
 
     debug!("Writing an empty profile file...");
@@ -68,11 +68,11 @@ pub fn init_command(args: &[String]) -> Fallible<()> {
             // the user doesn't get an error that it exists next time.
             remove_file(PROFILE_PATH).context(
                 "Failed to remove profile file after discovering a backup directory already exists.")?;
-            return Err(format_err!(
+            bail!(
                 "A backup directory ({}/) already exists.\n\
                  Please move or remove it, then run modman init again.",
                 STORAGE_PATH
-            ));
+            );
         } else {
             return Err(Error::from(mkdir_err));
         }

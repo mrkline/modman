@@ -117,7 +117,11 @@ fn try_to_restore(path: &Path, p: &Profile, dry_run: bool) -> Fallible<()> {
         let game_path = mod_path_to_game_path(path, &p.root_directory);
         // Let copy fail if the backup doesn't exist.
         copy(&backup_path, &game_path).map_err(|e| {
-            Error::from(e.context(format!("Couldn't copy {} to {}", backup_path.to_string_lossy(), game_path.to_string_lossy())))
+            Error::from(e.context(format!(
+                "Couldn't copy {} to {}",
+                backup_path.to_string_lossy(),
+                game_path.to_string_lossy()
+            )))
         })?;
         // If restoration succeeds, let's remove the backup.
         remove_file(&backup_path).map_err(|e| {

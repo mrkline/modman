@@ -174,12 +174,12 @@ fn restore_file_from_backup(
         hash.bytes
     );
     if hash != mod_meta.original_hash.unwrap() {
-        return Err(format_err!(
+        bail!(
             "{}'s contents didn't match the hash stored in the profile file
                            when it was restored to {}",
             backup_path.to_string_lossy(),
             game_path.to_string_lossy()
-        ));
+        );
     }
 
     Ok(())

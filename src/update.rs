@@ -59,12 +59,12 @@ fn update_installed_mods(p: &mut Profile, dry_run: bool) -> Fallible<()> {
         let current_version: &Version = m.version();
         let activated_version: &Version = &manifest.version;
         if *current_version != *activated_version {
-            return Err(format_err!(
+            bail!(
                 "{}'s version ({}) doesn't match what it was when ({}) when it was activated",
                 mod_path.to_string_lossy(),
                 current_version,
                 activated_version
-            ));
+            );
         }
 
         for (mod_file_path, metadata) in &mut manifest.files {

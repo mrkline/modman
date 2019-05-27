@@ -56,7 +56,7 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
 
         // First sanity check: we haven't already added this mod.
         if p.mods.contains_key(mod_path) {
-            return Err(format_err!("{} has already been activated!", mod_name));
+            bail!("{} has already been activated!", mod_name);
         }
 
         apply_mod(mod_path, &mut p, dry_run)?;
@@ -187,12 +187,12 @@ fn check_for_profile_conflicts(
     for mod_file_path in mod_file_paths {
         for (active_mod_name, active_mod) in &p.mods {
             if active_mod.files.contains_key(&*mod_file_path) {
-                return Err(format_err!(
+                bail!(
                     "{} from {} would overwrite the same file from {}",
                     mod_file_path.to_string_lossy(),
                     mod_path.to_string_lossy(),
                     active_mod_name.to_string_lossy()
-                ));
+                );
             }
         }
     }

@@ -123,14 +123,14 @@ fn extract_base_directory(paths: &mut [PathBuf]) -> Fallible<PathBuf> {
             if base_dir.as_os_str().is_empty() {
                 base_dir = Path::new(base).to_owned();
             } else if base_dir != base {
-                return Err(format_err!(
+                bail!(
                     "The file {} does not have the same base directory ({}) as other files in the mod",
                     path.to_string_lossy(),
                     base_dir.to_string_lossy()
-                ));
+                );
             }
         } else {
-            return Err(format_err!("An empty path was found."));
+            bail!("An empty path was found.");
         }
     }
     assert!(!base_dir.as_os_str().is_empty());

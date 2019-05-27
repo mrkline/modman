@@ -80,10 +80,10 @@ pub fn hash_and_backup<R: BufRead>(
     if behavior == BackupBehavior::FirstBackup && backup_path.exists() {
         // TODO: Offer corrective action once `modman rescue`
         // or whatever we want to call it exists.
-        return Err(format_err!(
+        bail!(
             "{} already exists (was `modman activate` previously interrupted?)",
             backup_path.to_string_lossy()
-        ));
+        );
     }
 
     trace!(
@@ -204,10 +204,10 @@ fn dir_walker(base_dir: &Path, dir: &Path, file_list: &mut Vec<PathBuf>) -> Fall
         }
         // We don't expect any symbolic links or other unusual things.
         else {
-            return Err(format_err!(
+            bail!(
                 "{} isn't a file or a directory",
                 entry.path().to_string_lossy()
-            ));
+            );
         }
     }
     Ok(())

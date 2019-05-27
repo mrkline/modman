@@ -65,8 +65,8 @@ impl DirectoryMod {
                     if entry.file_type()?.is_dir() && base_dir.is_none() {
                         base_dir = Some(entry.path());
                     } else {
-                        return Err(format_err!("{} contains things besides a README.txt, a VERSION.txt, and one base directory.",
-                                           path.to_string_lossy()));
+                        bail!("{} contains things besides a README.txt, a VERSION.txt, and one base directory.",
+                                           path.to_string_lossy());
                     }
                 }
             };
