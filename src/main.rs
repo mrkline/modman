@@ -11,6 +11,7 @@ mod check;
 mod deactivate;
 mod dir_mod;
 mod encoding;
+mod error;
 mod file_utils;
 mod hash_serde;
 mod init;
@@ -18,6 +19,7 @@ mod journal;
 mod list;
 mod modification;
 mod profile;
+mod repair;
 mod update;
 mod usage;
 mod version_serde;
@@ -28,6 +30,7 @@ use crate::check::*;
 use crate::deactivate::*;
 use crate::init::*;
 use crate::list::*;
+use crate::repair::*;
 use crate::update::*;
 use crate::usage::*;
 
@@ -116,6 +119,7 @@ fn do_it() -> Fallible<()> {
         "init" => init_command(&free_args[1..]),
         "list" => list_command(&free_args[1..]),
         "update" => update_command(&free_args[1..]),
+        "repair" => repair_command(&free_args[1..]),
         wut => {
             eprintln!("Unknown command: {}", wut);
             eprint_usage(USAGE, &opts);
@@ -125,37 +129,7 @@ fn do_it() -> Fallible<()> {
 
 fn main() {
     do_it().unwrap_or_else(|e| {
-        error!("{}", pretty_error(&e));
+        error!("{}", crate::error::pretty_error(&e));
         exit(1);
     });
-}
-
-// Borrowed lovingly from Burntsushi:
-// https://www.reddit.com/r/rust/comments/8fecqy/can_someone_show_an_example_of_failure_crate_usage/dy2u9q6/
-// Chains errors into a big string.
-fn pretty_error(err: &failure::Error) -> String {
-    let mut pretty = err.to_string();
-    let mut prev = err.as_fail();
-    while let Some(next) = prev.cause() {
-        pretty.push_str(":\n");
-        pretty.push_str(&next.to_string());
-        if let Some(bt) = next.backtrace() {
-            let mut bts = bt.to_string();
-            // If RUST_BACKTRACE is not defined, next.backtrace() gives us
-            // Some(bt), but bt.to_string() gives us an empty string.
-            // If we push a newline to the return value and nothing else,
-            // we get something like:
-            // ```
-            // Some errror
-            // :
-            // Its cause
-            // ```
-            if !bts.is_empty() {
-                bts.push_str("\n");
-                pretty.push_str(&bts);
-            }
-        }
-        prev = next;
-    }
-    pretty
 }

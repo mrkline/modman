@@ -70,8 +70,7 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
 }
 
 /// Given a mod's path and a profile, apply a given mod.
-/// If dry_run is set, no writes are made, except to the journal,
-/// which will be read back once the mod is applied.
+/// If dry_run is set, no writes are made.
 fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
     let mut m = open_mod(mod_path)?;
 

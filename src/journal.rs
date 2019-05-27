@@ -46,6 +46,7 @@ pub fn delete_journal(j: Box<dyn Journal>) -> Fallible<()> {
         .map_err(|e| Error::from(e.context("Couldn't delete activation journal")))
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum JournalAction {
     Added,
     Replaced,
