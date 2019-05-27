@@ -3,7 +3,7 @@
 # A crappy set of integration tests.
 # Uses a bunch of *nix utils, run accordingly.
 
-set -e
+set -euo pipefail
 
 cd test
 
