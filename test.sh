@@ -53,8 +53,27 @@ out=$(! $run init --root rootdir 2>&1)
 echo "$out" | grep -q "Please move or remove it."
 mv modman.profile.tmp modman.profile
 
+echo "Testing repair"
+
+#rootsums > expected/starting.root
+
+# Set things up as if `activate mod1.zip` was interrupted right before
+# updating the profile.
+mv rootdir/A.txt modman-backup/originals/A.txt
+mv rootdir/B.txt modman-backup/originals/B.txt
+cp mod1/modroot/A.txt rootdir
+cp mod1/modroot/B.txt rootdir
+cp mod1/modroot/C.txt rootdir
+echo "Replace A.txt" > modman-backup/temp/activate.journal
+echo "Replace B.txt" >> modman-backup/temp/activate.journal
+echo "Add C.txt" >> modman-backup/temp/activate.journal
+
+$run repair
+diff -u <(rootsums) expected/starting.root
+diff -u <(backupsums) expected/empty.backup
+
 echo "Activating a ZIP mod (mod1)"
-$run -vvv activate mod1.zip
+$run activate mod1.zip
 #cp modman.profile expected/mod1.profile
 #backupsums > expected/mod1.backup
 #rootsums > expected/mod1.root
@@ -99,8 +118,6 @@ rm modman-backup/temp/activate.journal
 mv modman-backup/originals/wut.txt modman-backup/originals/A.txt
 cp mod1/modroot/A.txt rootdir/A.txt
 $run check
-
-echo "TODO: repair"
 
 echo "Testing update with version mismatch"
 echo "1.2.3" > mod2/VERSION.txt

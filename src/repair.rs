@@ -66,12 +66,14 @@ pub fn repair_command(args: &[String]) -> Fallible<()> {
     }
 
     if clean_run {
-        info!(
-            "Repair complete, removing journal file. \
-             Game files should be as they were before the interrupted `modman activate`."
-        );
-        remove_file(get_journal_path())
-            .map_err(|e| Error::from(e.context("Couldn't delete activation journal")))?;
+        if !dry_run {
+            info!(
+                "Repair complete, removing journal file. \
+                 Game files should be as they were before the interrupted `modman activate`."
+            );
+            remove_file(get_journal_path())
+                .map_err(|e| Error::from(e.context("Couldn't delete activation journal")))?;
+        }
     } else {
         bail!(
             "Errors encountered while undoing the interrupted `modman activate`. \
