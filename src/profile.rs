@@ -8,7 +8,7 @@ use failure::*;
 use log::*;
 use semver::Version;
 use serde_derive::{Deserialize, Serialize};
-use sha2::{Digest, Sha224};
+use sha2::{digest, Digest, Sha224};
 
 use crate::version_serde::*;
 
@@ -20,7 +20,7 @@ pub static BACKUP_README: &str = "modman-backup/README.txt";
 pub static TEMPDIR_PATH: &str = "modman-backup/temp";
 pub static BACKUP_PATH: &str = "modman-backup/originals";
 
-pub type Sha224Bytes = generic_array::GenericArray<u8, <Sha224 as Digest>::OutputSize>;
+pub type Sha224Bytes = digest::generic_array::GenericArray<u8, <Sha224 as Digest>::OutputSize>;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct FileHash {
