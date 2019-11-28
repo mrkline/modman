@@ -94,7 +94,7 @@ fn do_it() -> Fallible<()> {
 
     if let Some(chto) = matches.opt_str("C") {
         env::set_current_dir(&chto)
-            .map_err(|e| e.context(format!("Couldn't set working directory to {}", chto)))?;
+            .with_context(|_| format!("Couldn't set working directory to {}", chto))?;
     }
 
     let mut free_args = matches.free;

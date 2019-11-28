@@ -136,18 +136,15 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
 
             // Create any needed directory structure.
             let game_file_dir = game_file_path.parent().unwrap();
-            create_dir_all(&game_file_dir).map_err(|e| {
-                e.context(format!(
+            create_dir_all(&game_file_dir).with_context(|_| {
+                format!(
                     "Couldn't create directory {}",
                     game_file_dir.to_string_lossy()
-                ))
+                )
             })?;
 
-            let mut game_file = File::create(&game_file_path).map_err(|e| {
-                e.context(format!(
-                    "Couldn't overwrite {}",
-                    game_file_path.to_string_lossy()
-                ))
+            let mut game_file = File::create(&game_file_path).with_context(|_| {
+                format!("Couldn't overwrite {}", game_file_path.to_string_lossy())
             })?;
 
             hash_and_write(&mut mod_file_reader, &mut game_file)

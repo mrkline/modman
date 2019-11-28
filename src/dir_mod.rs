@@ -17,12 +17,8 @@ pub struct DirectoryMod {
 
 impl DirectoryMod {
     pub fn new(path: &Path) -> Fallible<Self> {
-        let dir_iter = read_dir(path).map_err(|e| {
-            e.context(format!(
-                "Could not read directory {}",
-                path.to_string_lossy()
-            ))
-        })?;
+        let dir_iter = read_dir(path)
+            .with_context(|_| format!("Could not read directory {}", path.to_string_lossy()))?;
 
         let mut version_info: Option<Version> = None;
 
@@ -45,8 +41,7 @@ impl DirectoryMod {
                 }
                 "VERSION.txt" => {
                     assert!(version_info.is_none());
-                    let mut vf = File::open(entry.path())
-                        .map_err(|e| e.context("Couldn't open VERSION.txt"))?;
+                    let mut vf = File::open(entry.path()).context("Couldn't open VERSION.txt")?;
                     let mut version_string = String::new();
                     vf.read_to_string(&mut version_string)?;
                     version_info = Some(
@@ -55,8 +50,7 @@ impl DirectoryMod {
                 }
                 "README.txt" => {
                     assert!(readme.is_none());
-                    let mut rf = File::open(entry.path())
-                        .map_err(|e| e.context("Couldn't open README.txt"))?;
+                    let mut rf = File::open(entry.path()).context("Couldn't open README.txt")?;
                     let mut readme_string = String::new();
                     rf.read_to_string(&mut readme_string)?;
                     readme = Some(readme_string);
@@ -87,11 +81,8 @@ impl Mod for DirectoryMod {
 
     fn read_file<'a>(&'a mut self, p: &Path) -> Fallible<Box<dyn Read + 'a>> {
         let whole_path = self.base_dir.join(p);
-        let f = File::open(&whole_path).map_err(|e| {
-            e.context(format!(
-                "Couldn't open mod file ({})",
-                whole_path.to_string_lossy()
-            ))
+        let f = File::open(&whole_path).with_context(|_| {
+            format!("Couldn't open mod file ({})", whole_path.to_string_lossy())
         })?;
         Ok(Box::new(BufReader::new(f)))
     }

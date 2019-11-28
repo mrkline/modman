@@ -11,7 +11,7 @@ use crate::profile::*;
 pub fn hash_file(path: &Path) -> Fallible<FileHash> {
     trace!("Hashing {}", path.to_string_lossy());
     let f = std::fs::File::open(&path)
-        .map_err(|e| e.context(format!("Couldn't open {}", path.to_string_lossy())))?;
+        .with_context(|_| format!("Couldn't open {}", path.to_string_lossy()))?;
     hash_contents(&mut std::io::BufReader::new(f))
 }
 
@@ -51,11 +51,11 @@ pub fn hash_and_backup<R: BufRead>(
     if let Some(parent) = mod_file_path.parent() {
         backup_file_dir.push(parent);
     }
-    create_dir_all(&backup_file_dir).map_err(|e| {
-        e.context(format!(
+    create_dir_all(&backup_file_dir).with_context(|_| {
+        format!(
             "Couldn't create directory {}",
             backup_file_dir.to_string_lossy()
-        ))
+        )
     })?;
 
     let backup_path = backup_file_dir.join(mod_file_path.file_name().unwrap());
@@ -94,12 +94,12 @@ pub fn hash_and_backup<R: BufRead>(
 
     // Move the backup from the temporary location to its final spot
     // in the backup directory.
-    rename(&temp_file_path, &backup_path).map_err(|e| {
-        e.context(format!(
+    rename(&temp_file_path, &backup_path).with_context(|_| {
+        format!(
             "Couldn't rename {} to {}",
             temp_file_path.to_string_lossy(),
             backup_path.to_string_lossy()
-        ))
+        )
     })?;
 
     Ok(temp_hash)
@@ -118,23 +118,16 @@ fn hash_and_write_temporary<R: BufRead>(
     );
 
     // Because it's a temp file, we're fine if this truncates an existing file.
-    let mut temp_file = File::create(&temp_file_path).map_err(|e| {
-        e.context(format!(
-            "Couldn't create {}",
-            temp_file_path.to_string_lossy()
-        ))
-    })?;
+    let mut temp_file = File::create(&temp_file_path)
+        .with_context(|_| format!("Couldn't create {}", temp_file_path.to_string_lossy()))?;
 
     let hash = hash_and_write(reader, &mut temp_file)?;
 
     // sync() is a dirty lie on modern OSes and drives,
     // but do what we can to make sure the data actually made it to disk.
-    temp_file.sync_data().map_err(|e| {
-        e.context(format!(
-            "Couldn't sync {}",
-            temp_file_path.to_string_lossy()
-        ))
-    })?;
+    temp_file
+        .sync_data()
+        .with_context(|_| format!("Couldn't sync {}", temp_file_path.to_string_lossy()))?;
 
     Ok(hash)
 }
@@ -186,12 +179,8 @@ pub fn collect_file_paths_in_dir(base_dir: &Path) -> Fallible<Vec<PathBuf>> {
 }
 
 fn dir_walker(base_dir: &Path, dir: &Path, file_list: &mut Vec<PathBuf>) -> Fallible<()> {
-    let dir_iter = read_dir(dir).map_err(|e| {
-        e.context(format!(
-            "Could not read directory {}",
-            dir.to_string_lossy()
-        ))
-    })?;
+    let dir_iter = read_dir(dir)
+        .with_context(|_| format!("Could not read directory {}", dir.to_string_lossy()))?;
     for entry in dir_iter {
         let entry = entry?;
         let ft = entry.file_type()?;
@@ -222,11 +211,11 @@ pub fn remove_empty_parents(mut p: &Path) -> Fallible<()> {
             break;
         }
         debug!("Removing empty directory {}", parent.to_string_lossy());
-        remove_dir(&parent).map_err(|e| {
-            e.context(format!(
+        remove_dir(&parent).with_context(|_| {
+            format!(
                 "Couldn't remove empty directory {}",
                 parent.to_string_lossy()
-            ))
+            )
         })?;
         p = parent;
     }

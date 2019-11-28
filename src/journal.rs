@@ -42,8 +42,8 @@ pub fn get_journal_path() -> PathBuf {
 
 pub fn delete_journal(j: Box<dyn Journal>) -> Fallible<()> {
     drop(j);
-    remove_file(get_journal_path())
-        .map_err(|e| Error::from(e.context("Couldn't delete activation journal")))
+    remove_file(get_journal_path()).context("Couldn't delete activation journal")?;
+    Ok(())
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -59,9 +59,8 @@ pub fn read_journal() -> Fallible<JournalMap> {
     // function inside the Err arm.
     let f = match File::open(get_journal_path()) {
         Ok(f) => f,
-        Err(open_err) =>
-        // No problem if there's no journal
-        {
+        Err(open_err) => {
+            // No problem if there's no journal
             if open_err.kind() == std::io::ErrorKind::NotFound {
                 return Ok(BTreeMap::new());
             } else {
@@ -154,10 +153,10 @@ impl Journal for ActivationJournal {
         let path_str = p.to_str().expect(crate::encoding::UTF8_ONLY);
         self.fd
             .write_all(format!("{} {}\n", kind, path_str).as_bytes())
-            .map_err(|e| e.context("Couldn't append to activation journal"))?;
+            .context("Couldn't append to activation journal")?;
         self.fd
             .sync_data()
-            .map_err(|e| e.context("Couldn't sync activation journal"))?;
+            .context("Couldn't sync activation journal")?;
         Ok(())
     }
 }

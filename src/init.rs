@@ -99,7 +99,7 @@ Feel free to delete them."#,
             )
             .as_bytes(),
         )
-        .map_err(|e| e.context(format!("Couldn't create backup README ({})", BACKUP_README)))?;
+        .with_context(|_| format!("Couldn't create backup README ({})", BACKUP_README))?;
 
     info!("Backup directory ({}/) created", STORAGE_PATH);
 

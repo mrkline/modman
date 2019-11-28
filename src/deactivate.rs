@@ -125,7 +125,7 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
         let backup_path = mod_path_to_backup_path(file);
         debug!("Removing {}", backup_path.to_string_lossy());
         remove_file(&backup_path)
-            .map_err(|e| e.context(format!("Couldn't remove {}", backup_path.to_string_lossy())))?;
+            .with_context(|_| format!("Couldn't remove {}", backup_path.to_string_lossy()))?;
         remove_empty_parents(&backup_path)?;
     }
 
@@ -152,19 +152,19 @@ fn restore_file_from_backup(
     // We could use fs::copy(), but let's sanity check that we're putting back
     // the bits we got in the first place.
 
-    let reader = File::open(&backup_path).map_err(|e| {
-        e.context(format!(
+    let reader = File::open(&backup_path).with_context(|_| {
+        format!(
             "Couldn't open {} to restore it to {}",
             backup_path.to_string_lossy(),
             game_path.to_string_lossy()
-        ))
+        )
     })?;
     // Because we're restoring contents, this will truncate an existing file.
-    let mut game_file = File::create(&game_path).map_err(|e| {
-        e.context(format!(
+    let mut game_file = File::create(&game_path).with_context(|_| {
+        format!(
             "Couldn't open {} to overwrite it",
             game_path.to_string_lossy()
-        ))
+        )
     })?;
 
     let hash = hash_and_write(&mut BufReader::new(reader), &mut game_file)?;

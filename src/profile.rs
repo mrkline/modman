@@ -95,7 +95,7 @@ pub fn create_new_profile_file(p: &Profile) -> Fallible<()> {
 pub fn load_and_check_profile() -> Fallible<Profile> {
     info!("Loading profile...");
     let f = File::open(PROFILE_PATH)
-        .map_err(|e| e.context(format!("Couldn't open profile file ({})", PROFILE_PATH)))?;
+        .with_context(|_| format!("Couldn't open profile file ({})", PROFILE_PATH))?;
 
     let p: Profile = serde_json::from_reader(f).context("Couldn't parse profile file")?;
     sanity_check_profile(&p)?;
@@ -134,17 +134,17 @@ pub fn update_profile_file(p: &Profile) -> Fallible<()> {
     // 2. Sync that temporary (for what it's worth)
     temp_file
         .sync_data()
-        .map_err(|e| e.context(format!("Couldn't sync {}", temp_filename.to_string_lossy())))?;
+        .with_context(|_| format!("Couldn't sync {}", temp_filename.to_string_lossy()))?;
     drop(temp_file);
 
     // 3. Rename it to the real deal.
     trace!("Renaming updated profile to {}", PROFILE_PATH);
-    rename(&temp_filename, PROFILE_PATH).map_err(|e| {
-        e.context(format!(
+    rename(&temp_filename, PROFILE_PATH).with_context(|_| {
+        format!(
             "Couldn't rename {} to {}.",
             temp_filename.to_string_lossy(),
             PROFILE_PATH
-        ))
+        )
     })?;
 
     Ok(())

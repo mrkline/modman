@@ -157,11 +157,8 @@ fn update_file(
             // But should we factor them into a common function to their traces
             // and behavior in sync anyways?
             let mut mod_file_reader = BufReader::new(m.read_file(&mod_file_path)?);
-            let mut game_file = File::create(&game_file_path).map_err(|e| {
-                e.context(format!(
-                    "Couldn't overwrite {}",
-                    game_file_path.to_string_lossy()
-                ))
+            let mut game_file = File::create(&game_file_path).with_context(|_| {
+                format!("Couldn't overwrite {}", game_file_path.to_string_lossy())
             })?;
 
             let mod_hash = hash_and_write(&mut mod_file_reader, &mut game_file)?;
@@ -189,12 +186,8 @@ fn update_file(
 fn hash_and_backup_file(mod_file_path: &Path, root_directory: &Path) -> Fallible<FileHash> {
     let game_file_path = mod_path_to_game_path(mod_file_path, root_directory);
 
-    let game_file = File::open(&game_file_path).map_err(|e| {
-        e.context(format!(
-            "Couldn't open {}",
-            game_file_path.to_string_lossy()
-        ))
-    })?;
+    let game_file = File::open(&game_file_path)
+        .with_context(|_| format!("Couldn't open {}", game_file_path.to_string_lossy()))?;
 
     let hash = hash_and_backup(
         mod_file_path,

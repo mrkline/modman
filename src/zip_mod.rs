@@ -81,7 +81,7 @@ impl Mod for ZipMod {
         let r = self
             .z
             .by_name(&(self.base_dir.join(p)).to_string_lossy())
-            .map_err(|e| e.context(format!("Couldn't extract {}", p.to_string_lossy())))?;
+            .with_context(|_| format!("Couldn't extract {}", p.to_string_lossy()))?;
         Ok(Box::new(r))
     }
 
