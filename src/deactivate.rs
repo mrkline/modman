@@ -88,6 +88,7 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
         .iter()
         .filter(|(_f, m)| m.original_hash.is_some())
     {
+        info!("Restoring {}", file.display());
         restore_file_from_backup(file, meta, &p.root_directory)?;
         // Wait until step 3 to start removing the backups
         // so that we don't mess with backups until
@@ -100,8 +101,8 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
         .iter()
         .filter(|(_f, m)| m.original_hash.is_none())
     {
+        info!("Removing {}", file.display());
         let game_path = mod_path_to_game_path(file, &p.root_directory);
-        debug!("Removing {}", game_path.to_string_lossy());
         // Keep moving if it's already gone,
         // which gets us to step 3 if a previous run of deactivate
         // was interrupted.

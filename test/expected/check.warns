@@ -14,6 +14,7 @@ expected 36ff4c95f706b203a843b42a17bed28e471d092379f167c71b1849f2
 WARN - The backup of A.txt has changed!
 Please repair your game files, then run `modman update` to make new backups.
 TRACE - Hashing modman-backup/originals/B.txt
+INFO - 	B.txt is unchanged
 INFO - Verifying installed mod files...
 TRACE - Hashing rootdir/A.txt
 DEBUG - rootdir/A.txt hashed to
@@ -22,8 +23,13 @@ expected 8d7ca13a65c98098f7733fa95231d5698d9bb66c7bdf8e1cd086b403
 WARN - rootdir/A.txt has changed!
 If the game has been updated, run `modman update` to update backups and reinstall needed files.
 TRACE - Hashing rootdir/B.txt
+INFO - 	B.txt is unchanged
 TRACE - Hashing rootdir/C.txt
+INFO - 	C.txt is unchanged
 TRACE - Hashing rootdir/newdir/N.txt
+INFO - 	newdir/N.txt is unchanged
 TRACE - Hashing rootdir/newdir/newsubdir/A.txt
+INFO - 	newdir/newsubdir/A.txt is unchanged
 TRACE - Hashing rootdir/newdir/newsubdir/B.txt
+INFO - 	newdir/newsubdir/B.txt is unchanged
 ERROR - Checks failed!

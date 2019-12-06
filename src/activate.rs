@@ -115,6 +115,12 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
         let original_hash: Option<FileHash> =
             try_hash_and_backup(&mod_file_path, &p, &mut *journal, dry_run)?;
 
+        if original_hash.is_none() {
+            info!("Adding {}", mod_file_path.display());
+        } else {
+            info!("Replacing {}", mod_file_path.display());
+        }
+
         // Open and hash the mod file.
         // If this isn't a dry run, overwrite the game file.
         let full_mod_path: String = mod_path
