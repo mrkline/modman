@@ -9,7 +9,7 @@ use crate::file_utils::*;
 use crate::profile::*;
 use crate::usage::*;
 
-static USAGE: &str = r#"Usage: modman deactivate [options] <MOD>
+static USAGE: &str = r#"Usage: modman remove/deactivate [options] <MOD>
 
 Deactivate a mod at the path <MOD>.
 "#;

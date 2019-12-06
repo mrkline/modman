@@ -12,7 +12,7 @@ use crate::modification::*;
 use crate::profile::*;
 use crate::usage::*;
 
-static USAGE: &str = r#"Usage: modman activate [options] <MOD>
+static USAGE: &str = r#"Usage: modman add/activate [options] <MOD>
 
 Activate a mod at the path <MOD>.
 Mods can be in two formats:

@@ -40,14 +40,14 @@ static USAGE: &str = r#"Usage: modman [options] <command> [command options]
 
   init: Create a new mod configuration in this directory.
 
-  activate: Activate a mod package, backing up the game files they overwrite.
+  add/activate: Activate a mod package, backing up files it overwrite.
 
-  deactivate: Deactivate a mod package, restoring the game files they overwrote.
+  remove/deactivate: Deactivate a mod package, restoring files it overwrote.
 
   list: List currently-activated mod packages,
-        or the game files they've overwritten.
+        or the files they've overwritten.
 
-  update: Following an update, discover which modded game files were updated.
+  update: Following an update, discover which modded files were updated.
           Backup those updates, then overwrite them with the mod files again.
 
   check: Verifies that active mod files and backups are still good.
@@ -112,8 +112,8 @@ fn do_it() -> Fallible<()> {
     }
 
     match free_args[0].as_ref() {
-        "activate" => activate_command(&free_args[1..]),
-        "deactivate" => deactivate_command(&free_args[1..]),
+        "add"|"activate" => activate_command(&free_args[1..]),
+        "remove"|"deactivate" => deactivate_command(&free_args[1..]),
         "check" => check_command(&free_args[1..]),
         "help" => print_usage(USAGE, &opts),
         "init" => init_command(&free_args[1..]),
