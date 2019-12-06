@@ -78,9 +78,18 @@ impl Mod for ZipMod {
     }
 
     fn read_file<'a>(&'a mut self, p: &Path) -> Fallible<Box<dyn Read + 'a>> {
+        let full_path = self.base_dir.join(p);
+
+        // Windows paths look\like\this, but zip expects forward slashes.
+        let name = if cfg!(windows) {
+            full_path.to_string_lossy().replace("\\", "/")
+        } else {
+            full_path.to_string_lossy().to_string()
+        };
+
         let r = self
             .z
-            .by_name(&(self.base_dir.join(p)).to_string_lossy())
+            .by_name(&name)
             .with_context(|_| format!("Couldn't extract {}", p.to_string_lossy()))?;
         Ok(Box::new(r))
     }
