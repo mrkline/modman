@@ -2,9 +2,11 @@ use std::collections::*;
 use std::fs::*;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, mpsc::channel};
 
 use failure::*;
 use log::*;
+use rayon::prelude::*;
 
 use crate::file_utils::*;
 use crate::journal::*;
@@ -103,7 +105,7 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
     // their backups.
     // We should then be able to restore those later.
 
-    let mut journal = create_journal(dry_run)?;
+    let mut journal = Mutex::new(create_journal(dry_run)?);
 
     // We'll add this to the profile once we've applied all files.
     let mut manifest = ModManifest {
@@ -111,9 +113,11 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
         files: BTreeMap::new(),
     };
 
-    for mod_file_path in mod_file_paths {
+    let (tx, rx) = channel();
+
+    mod_file_paths.par_iter().try_for_each_with(tx, |tx, mod_file_path| {
         let original_hash: Option<FileHash> =
-            try_hash_and_backup(&mod_file_path, &p, &mut *journal, dry_run)?;
+            try_hash_and_backup(&mod_file_path, &p, &journal, dry_run)?;
 
         if original_hash.is_none() {
             info!("Adding {}", mod_file_path.display());
@@ -163,7 +167,12 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
             original_hash,
         };
 
-        manifest.files.insert(mod_file_path, meta);
+        tx.send((mod_file_path.clone(), meta));
+        Ok(())
+    })?;
+
+    for path_and_meta in rx {
+        manifest.files.insert(path_and_meta.0, path_and_meta.1);
     }
 
     // Update our profile with a manifest of the mod we just applied.
@@ -174,7 +183,7 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
     if !dry_run {
         update_profile_file(&p)?;
         // With that successfully done, we can axe the journal.
-        delete_journal(journal)?;
+        delete_journal(journal.into_inner().unwrap())?;
     }
 
     Ok(())
@@ -208,7 +217,7 @@ fn check_for_profile_conflicts(
 fn try_hash_and_backup(
     mod_file_path: &Path,
     p: &Profile,
-    journal: &mut dyn Journal,
+    journal: &Mutex<Box<dyn Journal>>,
     dry_run: bool,
 ) -> Fallible<Option<FileHash>> {
     let game_file_path = mod_path_to_game_path(mod_file_path, &p.root_directory);
@@ -223,7 +232,7 @@ fn try_hash_and_backup(
                     "{} doesn't exist, no need for backup.",
                     game_file_path.to_string_lossy()
                 );
-                journal.add_file(mod_file_path)?;
+                journal.lock().unwrap().add_file(mod_file_path)?;
                 Ok(None)
             }
             // If open() gave a different error, cough that up.
@@ -235,7 +244,7 @@ fn try_hash_and_backup(
             }
         }
         Ok(game_file) => {
-            journal.replace_file(mod_file_path)?;
+            journal.lock().unwrap().replace_file(mod_file_path)?;
             let mut br = BufReader::new(game_file);
 
             let hash = if !dry_run {
