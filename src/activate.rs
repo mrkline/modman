@@ -3,7 +3,7 @@ use std::fs::*;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, mpsc::channel, Mutex};
+use std::sync::{mpsc::channel, Mutex};
 
 use failure::*;
 use log::*;
@@ -127,15 +127,15 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
 
     let (tx, rx) = channel();
 
-    let journal = Arc::new(Mutex::new(create_journal(dry_run)?));
+    let journal = Mutex::new(create_journal(dry_run)?);
 
     paths_and_readers
         .into_par_iter()
-        .try_for_each_with::<_, _, Fallible<()>>((tx, journal.clone()), |(tx, journal), path_and_reader| {
+        .try_for_each_with::<_, _, Fallible<()>>((tx, &journal), |(tx, journal), path_and_reader| {
             let mod_file_path = path_and_reader.path;
 
             let original_hash: Option<FileHash> =
-                try_hash_and_backup(&mod_file_path, &p, &**journal, dry_run)?;
+                try_hash_and_backup(&mod_file_path, &p, journal, dry_run)?;
 
             if original_hash.is_none() {
                 info!("Adding {}", mod_file_path.display());
@@ -201,11 +201,7 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
     if !dry_run {
         update_profile_file(&p)?;
         // With that successfully done, we can axe the journal.
-        let last_journal_ref = match Arc::try_unwrap(journal) {
-            Ok(journal) => journal,
-            Err(_) => panic!("Not the last ref")
-        };
-        delete_journal(last_journal_ref.into_inner().unwrap())?;
+        delete_journal(journal.into_inner().unwrap())?;
     }
 
     Ok(())
