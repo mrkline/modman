@@ -14,7 +14,7 @@ static JOURNAL_NAME: &str = "activate.journal";
 /// that (as best we can, standard caveats apply)
 /// records files we're adding or replacing in the game directory.
 /// Removed once we've committed those changes to the profile file.
-pub trait Journal {
+pub trait Journal: Send {
     fn add_file(&mut self, p: &Path) -> Fallible<()> {
         self.entry("Add", p)
     }
@@ -27,7 +27,7 @@ pub trait Journal {
     fn entry(&mut self, kind: &str, p: &Path) -> Fallible<()>;
 }
 
-pub fn create_journal(dry_run: bool) -> Fallible<Box<dyn Journal + Send>> {
+pub fn create_journal(dry_run: bool) -> Fallible<Box<dyn Journal>> {
     if dry_run {
         Ok(Box::new(DryRunJournal::new()))
     } else {

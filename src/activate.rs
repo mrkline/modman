@@ -235,7 +235,7 @@ fn check_for_profile_conflicts(
 fn try_hash_and_backup(
     mod_file_path: &Path,
     p: &Profile,
-    journal: &Mutex<Box<dyn Journal + Send>>,
+    journal: &Mutex<Box<dyn Journal>>,
     dry_run: bool,
 ) -> Fallible<Option<FileHash>> {
     let game_file_path = mod_path_to_game_path(mod_file_path, &p.root_directory);
