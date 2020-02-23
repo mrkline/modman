@@ -23,7 +23,6 @@ mod repair;
 mod update;
 mod usage;
 mod version_serde;
-mod zip_mod;
 
 use crate::activate::*;
 use crate::check::*;
@@ -112,8 +111,8 @@ fn do_it() -> Fallible<()> {
     }
 
     match free_args[0].as_ref() {
-        "add"|"activate" => activate_command(&free_args[1..]),
-        "remove"|"deactivate" => deactivate_command(&free_args[1..]),
+        "add" | "activate" => activate_command(&free_args[1..]),
+        "remove" | "deactivate" => deactivate_command(&free_args[1..]),
         "check" => check_command(&free_args[1..]),
         "help" => print_usage(USAGE, &opts),
         "init" => init_command(&free_args[1..]),

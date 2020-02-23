@@ -140,8 +140,7 @@ fn verify_backups(p: &Profile) -> Fallible<bool> {
                     mod_path.to_string_lossy()
                 );
                 ret = false;
-            }
-            else {
+            } else {
                 info!("\t{} is unchanged", mod_path.display());
             }
         }
@@ -174,8 +173,7 @@ fn verify_installed_mod_files(p: &Profile) -> Fallible<bool> {
                     game_path.to_string_lossy()
                 );
                 ret = false;
-            }
-            else {
+            } else {
                 info!("\t{} is unchanged", mod_path.display());
             }
         }

@@ -6,7 +6,6 @@ use failure::*;
 use semver::Version;
 
 use crate::dir_mod::*;
-use crate::zip_mod::*;
 
 pub trait Mod {
     /// Returns a vector of the mod files' paths, with the base directory
@@ -18,7 +17,7 @@ pub trait Mod {
     /// the underlying file.
     fn paths(&mut self) -> Fallible<Vec<PathBuf>>;
 
-    fn read_file<'a>(&'a mut self, p: &Path) -> Fallible<Box<dyn Read + 'a>>;
+    fn read_file(&mut self, p: &Path) -> Fallible<Box<dyn BufRead + Send>>;
 
     fn version(&self) -> &Version;
 
@@ -29,17 +28,13 @@ pub fn open_mod(p: &Path) -> Fallible<Box<dyn Mod>> {
     // Alright, let's stat the thing:
     let stat = metadata(p).with_context(|_| format!("Couldn't find {}", p.to_string_lossy()))?;
 
-    if stat.is_file() {
-        let z = ZipMod::new(p)
-            .with_context(|_| format!("Trouble reading mod file {}", p.to_string_lossy()))?;
-        Ok(Box::new(z))
-    } else if stat.is_dir() {
+    if stat.is_dir() {
         let d = DirectoryMod::new(p)
             .with_context(|_| format!("Trouble reading mod directory {}", p.to_string_lossy()))?;
         Ok(Box::new(d))
     } else {
         Err(format_err!(
-            "Couldn't open mod {}: not a file or a directory.",
+            "Couldn't open mod {}: not a directory.",
             p.to_string_lossy()
         ))
     }

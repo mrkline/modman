@@ -1,8 +1,9 @@
 use std::collections::*;
 use std::fs::*;
+use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, mpsc::channel};
+use std::sync::{Arc, mpsc::channel, Mutex};
 
 use failure::*;
 use log::*;
@@ -82,6 +83,19 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
     // and make sure the new file doesn't contain any of them.
     check_for_profile_conflicts(mod_path, &mod_file_paths, &p)?;
 
+    struct PathAndRead {
+        path: PathBuf,
+        reader: Box<dyn BufRead + Send>,
+    }
+
+    let paths_and_readers = mod_file_paths
+        .into_iter()
+        .map(|path| {
+            let reader = m.read_file(&path)?;
+            Ok(PathAndRead { path, reader })
+        })
+        .collect::<Fallible<Vec<_>>>()?;
+
     // We want to install mod files in a way that minimizes the risk of
     // losing data if this program is interrupted or crashes.
     // So:
@@ -105,8 +119,6 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
     // their backups.
     // We should then be able to restore those later.
 
-    let mut journal = Mutex::new(create_journal(dry_run)?);
-
     // We'll add this to the profile once we've applied all files.
     let mut manifest = ModManifest {
         version: m.version().clone(),
@@ -115,61 +127,67 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
 
     let (tx, rx) = channel();
 
-    mod_file_paths.par_iter().try_for_each_with(tx, |tx, mod_file_path| {
-        let original_hash: Option<FileHash> =
-            try_hash_and_backup(&mod_file_path, &p, &journal, dry_run)?;
+    let journal = Arc::new(Mutex::new(create_journal(dry_run)?));
 
-        if original_hash.is_none() {
-            info!("Adding {}", mod_file_path.display());
-        } else {
-            info!("Replacing {}", mod_file_path.display());
-        }
+    paths_and_readers
+        .into_par_iter()
+        .try_for_each_with::<_, _, Fallible<()>>((tx, journal.clone()), |(tx, journal), path_and_reader| {
+            let mod_file_path = path_and_reader.path;
 
-        // Open and hash the mod file.
-        // If this isn't a dry run, overwrite the game file.
-        let full_mod_path: String = mod_path
-            .join(mod_file_path.as_path())
-            .to_string_lossy()
-            .into_owned();
-        let mut mod_file_reader = BufReader::new(m.read_file(&mod_file_path)?);
-        let mod_hash = if dry_run {
-            // We don't need to write the mod file anywhere, so just hash it.
-            hash_contents(&mut mod_file_reader)
-        } else {
-            let game_file_path = mod_path_to_game_path(&mod_file_path, &p.root_directory);
+            let original_hash: Option<FileHash> =
+                try_hash_and_backup(&mod_file_path, &p, &**journal, dry_run)?;
 
-            debug!(
-                "Installing {} to {}",
-                full_mod_path,
-                game_file_path.to_string_lossy()
-            );
+            if original_hash.is_none() {
+                info!("Adding {}", mod_file_path.display());
+            } else {
+                info!("Replacing {}", mod_file_path.display());
+            }
 
-            // Create any needed directory structure.
-            let game_file_dir = game_file_path.parent().unwrap();
-            create_dir_all(&game_file_dir).with_context(|_| {
-                format!(
-                    "Couldn't create directory {}",
-                    game_file_dir.to_string_lossy()
-                )
-            })?;
+            // Open and hash the mod file.
+            // If this isn't a dry run, overwrite the game file.
+            let full_mod_path: String = mod_path
+                .join(mod_file_path.as_path())
+                .to_string_lossy()
+                .into_owned();
+            let mut mod_file_reader = path_and_reader.reader;
+            let mod_hash = if dry_run {
+                // We don't need to write the mod file anywhere, so just hash it.
+                hash_contents(&mut mod_file_reader)
+            } else {
+                let game_file_path = mod_path_to_game_path(&mod_file_path, &p.root_directory);
 
-            let mut game_file = File::create(&game_file_path).with_context(|_| {
-                format!("Couldn't overwrite {}", game_file_path.to_string_lossy())
-            })?;
+                debug!(
+                    "Installing {} to {}",
+                    full_mod_path,
+                    game_file_path.to_string_lossy()
+                );
 
-            hash_and_write(&mut mod_file_reader, &mut game_file)
-        }?;
+                // Create any needed directory structure.
+                let game_file_dir = game_file_path.parent().unwrap();
+                create_dir_all(&game_file_dir).with_context(|_| {
+                    format!(
+                        "Couldn't create directory {}",
+                        game_file_dir.to_string_lossy()
+                    )
+                })?;
 
-        trace!("Mod file {} hashed to\n{:x}", full_mod_path, mod_hash.bytes);
+                let mut game_file = File::create(&game_file_path).with_context(|_| {
+                    format!("Couldn't overwrite {}", game_file_path.to_string_lossy())
+                })?;
 
-        let meta = ModFileMetadata {
-            mod_hash,
-            original_hash,
-        };
+                hash_and_write(&mut mod_file_reader, &mut game_file)
+            }?;
 
-        tx.send((mod_file_path.clone(), meta));
-        Ok(())
-    })?;
+            trace!("Mod file {} hashed to\n{:x}", full_mod_path, mod_hash.bytes);
+
+            let meta = ModFileMetadata {
+                mod_hash,
+                original_hash,
+            };
+
+            tx.send((mod_file_path.clone(), meta)).expect("Couldn't send");
+            Ok(())
+        })?;
 
     for path_and_meta in rx {
         manifest.files.insert(path_and_meta.0, path_and_meta.1);
@@ -183,7 +201,11 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
     if !dry_run {
         update_profile_file(&p)?;
         // With that successfully done, we can axe the journal.
-        delete_journal(journal.into_inner().unwrap())?;
+        let last_journal_ref = match Arc::try_unwrap(journal) {
+            Ok(journal) => journal,
+            Err(_) => panic!("Not the last ref")
+        };
+        delete_journal(last_journal_ref.into_inner().unwrap())?;
     }
 
     Ok(())
@@ -217,7 +239,7 @@ fn check_for_profile_conflicts(
 fn try_hash_and_backup(
     mod_file_path: &Path,
     p: &Profile,
-    journal: &Mutex<Box<dyn Journal>>,
+    journal: &Mutex<Box<dyn Journal + Send>>,
     dry_run: bool,
 ) -> Fallible<Option<FileHash>> {
     let game_file_path = mod_path_to_game_path(mod_file_path, &p.root_directory);

@@ -27,7 +27,7 @@ pub trait Journal {
     fn entry(&mut self, kind: &str, p: &Path) -> Fallible<()>;
 }
 
-pub fn create_journal(dry_run: bool) -> Fallible<Box<dyn Journal>> {
+pub fn create_journal(dry_run: bool) -> Fallible<Box<dyn Journal + Send>> {
     if dry_run {
         Ok(Box::new(DryRunJournal::new()))
     } else {

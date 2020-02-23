@@ -66,9 +66,15 @@ impl DirectoryMod {
             };
         }
 
-        if version_info.is_none() { return Err(format_err!("Couldn't find VERSION.txt")); }
-        if readme.is_none() { return Err(format_err!("Couldn't find README.txt")); }
-        if base_dir.is_none() { return Err(format_err!("Couldn't find a base directory")); }
+        if version_info.is_none() {
+            return Err(format_err!("Couldn't find VERSION.txt"));
+        }
+        if readme.is_none() {
+            return Err(format_err!("Couldn't find README.txt"));
+        }
+        if base_dir.is_none() {
+            return Err(format_err!("Couldn't find a base directory"));
+        }
 
         Ok(DirectoryMod {
             base_dir: base_dir.unwrap(),
@@ -83,7 +89,7 @@ impl Mod for DirectoryMod {
         collect_file_paths_in_dir(&self.base_dir)
     }
 
-    fn read_file<'a>(&'a mut self, p: &Path) -> Fallible<Box<dyn Read + 'a>> {
+    fn read_file(&mut self, p: &Path) -> Fallible<Box<dyn BufRead + Send>> {
         let whole_path = self.base_dir.join(p);
         let f = File::open(&whole_path).with_context(|_| {
             format!("Couldn't open mod file ({})", whole_path.to_string_lossy())

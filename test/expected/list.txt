@@ -1,4 +1,4 @@
-mod1.zip (v1.2.3)
+mod1 (v1.2.3)
 I'm mod1!
 
 	A.txt

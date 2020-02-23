@@ -27,11 +27,6 @@ echo "Cleaning up test environment..."
 rm -f modman.profile
 rm -rf modman-backup
 
-# Make a zip version of mod1
-echo "Creating ZIP mods..."
-rm -f mod1.zip && sh -c 'cd mod1 && zip -r9 ../mod1.zip *' > /dev/null
-rm -f mod-conflicting.zip && sh -c 'cd mod-conflicting && zip -r9 ../mod-conflicting.zip *' > /dev/null
-
 echo "Testing init"
 $run init --root rootdir
 #cp modman.profile expected/empty.profile
@@ -57,7 +52,7 @@ echo "Testing repair"
 
 #rootsums > expected/starting.root
 
-# Set things up as if `activate mod1.zip` was interrupted right before
+# Set things up as if `activate mod1` was interrupted right before
 # updating the profile.
 mv rootdir/A.txt modman-backup/originals/A.txt
 mv rootdir/B.txt modman-backup/originals/B.txt
@@ -73,7 +68,7 @@ diff -u <(rootsums) expected/starting.root
 diff -u <(backupsums) expected/empty.backup
 
 echo "Activating a ZIP mod (mod1)"
-$run activate mod1.zip
+$run activate mod1
 #cp modman.profile expected/mod1.profile
 #backupsums > expected/mod1.backup
 #rootsums > expected/mod1.root
@@ -91,12 +86,12 @@ diff -u expected/mod2.backup <(backupsums)
 diff -u expected/mod2.root <(rootsums)
 
 echo "Testing activation failure when adding the same mod twice"
-out=$(! $run activate mod1.zip 2>&1)
-echo "$out" | grep -q "mod1.zip has already been activated!"
+out=$(! $run activate mod1 2>&1)
+echo "$out" | grep -q "mod1 has already been activated!"
 
 echo "Testing activation conflict detection"
-out=$(! $run activate mod-conflicting.zip 2>&1)
-echo "$out" | grep -q "A.txt from mod-conflicting.zip would overwrite the same file from mod1.zip"
+out=$(! $run activate mod-conflicting 2>&1)
+echo "$out" | grep -q "A.txt from mod-conflicting would overwrite the same file from mod1"
 
 echo "Testing list"
 #$run list -f -r > expected/list.txt
@@ -141,7 +136,7 @@ diff -u expected/updated.backup <(backupsums)
 diff -u expected/updated.root <(rootsums)
 
 echo "Testing deactivate"
-$run deactivate mod1.zip mod2
+$run deactivate mod1 mod2
 diff -u modman.profile expected/empty.profile
 diff -u expected/empty.backup <(backupsums)
 # We expect the "updates" applied above to persist through deactivate.

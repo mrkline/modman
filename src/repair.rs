@@ -88,9 +88,11 @@ fn try_to_undo(path: &Path, action: JournalAction, p: &Profile, dry_run: bool) -
         .values()
         .any(|manifest| manifest.files.keys().any(|file| file == path))
     {
-        bail!("{} is referenced in both the activation jurnal and the profile. \
+        bail!(
+            "{} is referenced in both the activation jurnal and the profile. \
         Something is wrong - journals should be deleted before their mod is added to the profile.",
-        path.to_string_lossy());
+            path.to_string_lossy()
+        );
     }
 
     match action {

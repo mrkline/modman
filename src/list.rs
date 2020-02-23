@@ -2,9 +2,9 @@ use failure::*;
 use log::*;
 
 use crate::error::*;
+use crate::modification::*;
 use crate::profile::*;
 use crate::usage::*;
-use crate::modification::*;
 
 static USAGE: &str = r#"Usage: modman list [options]
 
@@ -46,7 +46,11 @@ pub fn list_command(args: &[String]) -> Fallible<()> {
                     }
                     println!("{}", m.readme());
                 }
-                Err(e) => warn!("Couldn't open mod {}:\n{}", mod_name.to_string_lossy(), pretty_error(&e))
+                Err(e) => warn!(
+                    "Couldn't open mod {}:\n{}",
+                    mod_name.to_string_lossy(),
+                    pretty_error(&e)
+                ),
             }
         }
         if print_files {

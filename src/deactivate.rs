@@ -153,13 +153,13 @@ fn restore_file_from_backup(
     // We could use fs::copy(), but let's sanity check that we're putting back
     // the bits we got in the first place.
 
-    let reader = File::open(&backup_path).with_context(|_| {
+    let mut reader = BufReader::new(File::open(&backup_path).with_context(|_| {
         format!(
             "Couldn't open {} to restore it to {}",
             backup_path.to_string_lossy(),
             game_path.to_string_lossy()
         )
-    })?;
+    })?);
     // Because we're restoring contents, this will truncate an existing file.
     let mut game_file = File::create(&game_path).with_context(|_| {
         format!(
@@ -168,7 +168,7 @@ fn restore_file_from_backup(
         )
     })?;
 
-    let hash = hash_and_write(&mut BufReader::new(reader), &mut game_file)?;
+    let hash = hash_and_write(&mut reader, &mut game_file)?;
     trace!(
         "Backup file {} hashed to\n{:x}",
         backup_path.to_string_lossy(),
