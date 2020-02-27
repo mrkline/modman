@@ -211,12 +211,23 @@ pub fn remove_empty_parents(mut p: &Path) -> Fallible<()> {
             break;
         }
         debug!("Removing empty directory {}", parent.to_string_lossy());
-        remove_dir(&parent).with_context(|_| {
-            format!(
-                "Couldn't remove empty directory {}",
-                parent.to_string_lossy()
-            )
-        })?;
+        remove_dir(&parent)
+            .or_else(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    // If we're doing removes in parallel, there's a chance
+                    // another thread got it already
+                    // warn!("{} was already removed!", parent.to_string_lossy());
+                    Ok(())
+                } else {
+                    Err(e)
+                }
+            })
+            .with_context(|_| {
+                format!(
+                    "Couldn't remove empty directory {}",
+                    parent.to_string_lossy()
+                )
+            })?;
         p = parent;
     }
     Ok(())

@@ -8,6 +8,7 @@ use log::*;
 use crate::file_utils::*;
 use crate::profile::*;
 use crate::usage::*;
+use rayon::prelude::*;
 
 static USAGE: &str = r#"Usage: modman remove/deactivate [options] <MOD>
 
@@ -83,52 +84,54 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
     // instead of allocating storage for partitioned references.
 
     // Step 1:
-    for (file, meta) in removed_mod
+    removed_mod
         .files
-        .iter()
+        .par_iter()
         .filter(|(_f, m)| m.original_hash.is_some())
-    {
-        info!("Restoring {}", file.display());
-        restore_file_from_backup(file, meta, &p.root_directory)?;
-        // Wait until step 3 to start removing the backups
-        // so that we don't mess with backups until
-        // the game directory is as it started.
-    }
+        .try_for_each(|(file, meta)| {
+            info!("Restoring {}", file.display());
+            restore_file_from_backup(file, meta, &p.root_directory)
+            // Wait until step 3 to start removing the backups
+            // so that we don't mess with backups until
+            // the game directory is as it started.
+        })?;
 
     // Step 2:
-    for (file, _) in removed_mod
+    removed_mod
         .files
-        .iter()
+        .par_iter()
         .filter(|(_f, m)| m.original_hash.is_none())
-    {
-        info!("Removing {}", file.display());
-        let game_path = mod_path_to_game_path(file, &p.root_directory);
-        // Keep moving if it's already gone,
-        // which gets us to step 3 if a previous run of deactivate
-        // was interrupted.
-        remove_file(&game_path).or_else(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                warn!("{} was already removed!", game_path.to_string_lossy());
-                Ok(())
-            } else {
-                Err(e.context(format!("Couldn't remove {}", game_path.to_string_lossy())))
-            }
+        .try_for_each(|(file, _)| {
+            info!("Removing {}", file.display());
+            let game_path = mod_path_to_game_path(file, &p.root_directory);
+            // Keep moving if it's already gone,
+            // which gets us to step 3 if a previous run of deactivate
+            // was interrupted.
+            remove_file(&game_path)
+                .or_else(|e| {
+                    if e.kind() == std::io::ErrorKind::NotFound {
+                        warn!("{} was already removed!", game_path.to_string_lossy());
+                        Ok(())
+                    } else {
+                        Err(e)
+                    }
+                })
+                .with_context(|_| format!("Couldn't remove {}", game_path.to_string_lossy()))?;
+            remove_empty_parents(&game_path)
         })?;
-        remove_empty_parents(&game_path)?;
-    }
 
     // Step 3:
-    for (file, _) in removed_mod
+    removed_mod
         .files
-        .iter()
+        .par_iter()
         .filter(|(_f, m)| m.original_hash.is_some())
-    {
-        let backup_path = mod_path_to_backup_path(file);
-        debug!("Removing {}", backup_path.to_string_lossy());
-        remove_file(&backup_path)
-            .with_context(|_| format!("Couldn't remove {}", backup_path.to_string_lossy()))?;
-        remove_empty_parents(&backup_path)?;
-    }
+        .try_for_each(|(file, _)| {
+            let backup_path = mod_path_to_backup_path(file);
+            debug!("Removing {}", backup_path.to_string_lossy());
+            remove_file(&backup_path)
+                .with_context(|_| format!("Couldn't remove {}", backup_path.to_string_lossy()))?;
+            remove_empty_parents(&backup_path)
+        })?;
 
     update_profile_file(&p)?;
 
