@@ -127,11 +127,12 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
 
     let (tx, rx) = channel();
 
-    let journal = Mutex::new(create_journal(dry_run)?);
+    let journal_mutex = Mutex::new(create_journal(dry_run)?);
+    let journal: &Mutex<_> = &journal_mutex;
 
     paths_and_readers
         .into_par_iter()
-        .try_for_each_with::<_, _, Fallible<()>>((tx, &journal), |(tx, journal), path_and_reader| {
+        .try_for_each_with::<_, _, Fallible<()>>(tx, |tx, path_and_reader| {
             let mod_file_path = path_and_reader.path;
 
             let original_hash: Option<FileHash> =
@@ -185,7 +186,8 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
                 original_hash,
             };
 
-            tx.send((mod_file_path.clone(), meta)).expect("Couldn't send");
+            tx.send((mod_file_path.clone(), meta))
+                .expect("Couldn't send");
             Ok(())
         })?;
 
@@ -201,7 +203,7 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
     if !dry_run {
         update_profile_file(&p)?;
         // With that successfully done, we can axe the journal.
-        delete_journal(journal.into_inner().unwrap())?;
+        delete_journal(journal_mutex.into_inner().unwrap())?;
     }
 
     Ok(())
