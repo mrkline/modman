@@ -1,6 +1,5 @@
 use std::collections::*;
 use std::fs::*;
-use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc::channel, Mutex};
@@ -75,26 +74,13 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
 /// Given a mod's path and a profile, apply a given mod.
 /// If dry_run is set, no writes are made.
 fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
-    let mut m = open_mod(mod_path)?;
+    let m = open_mod(mod_path)?;
 
     let mod_file_paths = m.paths()?;
 
     // Look at all the paths we currently have,
     // and make sure the new file doesn't contain any of them.
     check_for_profile_conflicts(mod_path, &mod_file_paths, &p)?;
-
-    struct PathAndRead {
-        path: PathBuf,
-        reader: Box<dyn BufRead + Send>,
-    }
-
-    let paths_and_readers = mod_file_paths
-        .into_iter()
-        .map(|path| {
-            let reader = m.read_file(&path)?;
-            Ok(PathAndRead { path, reader })
-        })
-        .collect::<Fallible<Vec<_>>>()?;
 
     // We want to install mod files in a way that minimizes the risk of
     // losing data if this program is interrupted or crashes.
@@ -130,11 +116,9 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
     let journal_mutex = Mutex::new(create_journal(dry_run)?);
     let journal: &Mutex<_> = &journal_mutex;
 
-    paths_and_readers
+    mod_file_paths
         .into_par_iter()
-        .try_for_each_with::<_, _, Fallible<()>>(tx, |tx, path_and_reader| {
-            let mod_file_path = path_and_reader.path;
-
+        .try_for_each_with::<_, _, Fallible<()>>(tx, |tx, mod_file_path| {
             let original_hash: Option<FileHash> =
                 try_hash_and_backup(&mod_file_path, &p, journal, dry_run)?;
 
@@ -150,7 +134,7 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
                 .join(mod_file_path.as_path())
                 .to_string_lossy()
                 .into_owned();
-            let mut mod_file_reader = path_and_reader.reader;
+            let mut mod_file_reader = m.read_file(&mod_file_path)?;
             let mod_hash = if dry_run {
                 // We don't need to write the mod file anywhere, so just hash it.
                 hash_contents(&mut mod_file_reader)

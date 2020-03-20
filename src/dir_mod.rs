@@ -85,11 +85,11 @@ impl DirectoryMod {
 }
 
 impl Mod for DirectoryMod {
-    fn paths(&mut self) -> Fallible<Vec<PathBuf>> {
+    fn paths(&self) -> Fallible<Vec<PathBuf>> {
         collect_file_paths_in_dir(&self.base_dir)
     }
 
-    fn read_file(&mut self, p: &Path) -> Fallible<Box<dyn BufRead + Send>> {
+    fn read_file(&self, p: &Path) -> Fallible<Box<dyn BufRead>> {
         let whole_path = self.base_dir.join(p);
         let f = File::open(&whole_path).with_context(|_| {
             format!("Couldn't open mod file ({})", whole_path.to_string_lossy())

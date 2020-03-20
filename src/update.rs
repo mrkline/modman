@@ -54,7 +54,7 @@ fn update_installed_mods(p: &mut Profile, dry_run: bool) -> Fallible<()> {
     for (mod_path, manifest) in &mut p.mods {
         // First, open up the mod.
         // (If we can't find it, we can't reinstall the mod files.)
-        let mut m = open_mod(mod_path)?;
+        let m = open_mod(mod_path)?;
 
         let current_version: &Version = m.version();
         let activated_version: &Version = &manifest.version;
@@ -72,7 +72,7 @@ fn update_installed_mods(p: &mut Profile, dry_run: bool) -> Fallible<()> {
                 mod_path,
                 mod_file_path,
                 metadata,
-                &mut *m,
+                &*m,
                 &p.root_directory,
                 dry_run,
             )?;
@@ -113,7 +113,7 @@ fn update_file(
     mod_path: &Path,
     mod_file_path: &Path,
     metadata: &mut ModFileMetadata,
-    m: &mut dyn Mod,
+    m: &dyn Mod,
     root_directory: &Path,
     dry_run: bool,
 ) -> Fallible<bool> {
@@ -156,7 +156,7 @@ fn update_file(
             // we don't have to create directories, etc.)
             // But should we factor them into a common function to their traces
             // and behavior in sync anyways?
-            let mut mod_file_reader = BufReader::new(m.read_file(&mod_file_path)?);
+            let mut mod_file_reader = m.read_file(&mod_file_path)?;
             let mut game_file = File::create(&game_file_path).with_context(|_| {
                 format!("Couldn't overwrite {}", game_file_path.to_string_lossy())
             })?;

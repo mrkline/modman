@@ -9,22 +9,17 @@ use crate::dir_mod::*;
 
 pub trait Mod {
     /// Returns a vector of the mod files' paths, with the base directory
-    /// stripped away (TODO).
-    ///
-    /// Originally this was going to return an iterator,
-    /// but ownership becomes very tricky when working with ZIP archives,
-    /// since the zip crate's ZipArchive needs mutability to seek around
-    /// the underlying file.
-    fn paths(&mut self) -> Fallible<Vec<PathBuf>>;
+    /// stripped away
+    fn paths(&self) -> Fallible<Vec<PathBuf>>;
 
-    fn read_file(&mut self, p: &Path) -> Fallible<Box<dyn BufRead + Send>>;
+    fn read_file(&self, p: &Path) -> Fallible<Box<dyn BufRead>>;
 
     fn version(&self) -> &Version;
 
     fn readme(&self) -> &str;
 }
 
-pub fn open_mod(p: &Path) -> Fallible<Box<dyn Mod>> {
+pub fn open_mod(p: &Path) -> Fallible<Box<dyn Mod + Sync>> {
     // Alright, let's stat the thing:
     let stat = metadata(p).with_context(|_| format!("Couldn't find {}", p.to_string_lossy()))?;
 
