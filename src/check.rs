@@ -7,6 +7,7 @@ use crate::file_utils::*;
 use crate::journal::*;
 use crate::profile::*;
 use crate::usage::*;
+use rayon::prelude::*;
 
 static USAGE: &str = r#"Usage: modman check
 
@@ -112,72 +113,88 @@ fn find_unknown_files(p: &Profile) -> Fallible<bool> {
 /// and returns false if any fail their check.
 fn verify_backups(p: &Profile) -> Fallible<bool> {
     info!("Verifying backup files...");
-    let mut ret = true;
+    let mut backups_ok = true;
 
     for manifest in p.mods.values() {
-        for (mod_path, metadata) in &manifest.files {
-            let mod_path: &Path = &**mod_path;
+        backups_ok &= manifest
+            .files
+            .par_iter()
+            .map(|(mod_path, metadata)| {
+                let mod_path: &Path = &**mod_path;
 
-            // If there was no backup, there's nothing to check.
-            if metadata.original_hash.is_none() {
-                continue;
-            }
-            let original_hash = &metadata.original_hash.unwrap();
+                // If there was no backup, there's nothing to check.
+                if metadata.original_hash.is_none() {
+                    return Ok(true);
+                }
+                let original_hash = &metadata.original_hash.unwrap();
 
-            let backup_path = mod_path_to_backup_path(mod_path);
-            let backup_hash = hash_file(&backup_path)?;
-            if backup_hash != *original_hash {
-                debug!(
-                    "{} hashed to\n{:x},\nexpected {:x}",
-                    backup_path.to_string_lossy(),
-                    backup_hash.bytes,
-                    original_hash.bytes
-                );
-                warn!(
-                    "The backup of {} has changed!\n\
+                let backup_path = mod_path_to_backup_path(mod_path);
+                let backup_hash = hash_file(&backup_path)?;
+                if backup_hash != *original_hash {
+                    debug!(
+                        "{} hashed to\n{:x},\nexpected {:x}",
+                        backup_path.to_string_lossy(),
+                        backup_hash.bytes,
+                        original_hash.bytes
+                    );
+                    warn!(
+                        "The backup of {} has changed!\n\
                      Please repair your game files, then run `modman update` \
                      to make new backups.",
-                    mod_path.to_string_lossy()
-                );
-                ret = false;
-            } else {
-                info!("\t{} is unchanged", mod_path.display());
-            }
-        }
+                        mod_path.to_string_lossy()
+                    );
+                    Ok(false)
+                } else {
+                    info!("\t{} is unchanged", mod_path.display());
+                    Ok(true)
+                }
+            })
+            .reduce(
+                || -> Fallible<bool> { Ok(true) },
+                |left, right| Ok(left? && right?),
+            )?;
     }
 
-    Ok(ret)
+    Ok(backups_ok)
 }
 
 /// Verifies integrity of installed mod files,
 /// and returns false if any fail their check.
 fn verify_installed_mod_files(p: &Profile) -> Fallible<bool> {
     info!("Verifying installed mod files...");
-    let mut ret = true;
+    let mut installed_files_ok = true;
 
     for manifest in p.mods.values() {
-        for (mod_path, metadata) in &manifest.files {
-            let game_path = mod_path_to_game_path(&**mod_path, &p.root_directory);
-            let game_hash = hash_file(&game_path)?;
-            if game_hash != metadata.mod_hash {
-                debug!(
-                    "{} hashed to\n{:x},\nexpected {:x}",
-                    game_path.to_string_lossy(),
-                    game_hash.bytes,
-                    metadata.mod_hash.bytes
-                );
-                warn!(
-                    "{} has changed!\n\
+        installed_files_ok &= manifest
+            .files
+            .par_iter()
+            .map(|(mod_path, metadata)| {
+                let game_path = mod_path_to_game_path(&**mod_path, &p.root_directory);
+                let game_hash = hash_file(&game_path)?;
+                if game_hash != metadata.mod_hash {
+                    debug!(
+                        "{} hashed to\n{:x},\nexpected {:x}",
+                        game_path.to_string_lossy(),
+                        game_hash.bytes,
+                        metadata.mod_hash.bytes
+                    );
+                    warn!(
+                        "{} has changed!\n\
                      If the game has been updated, run `modman update` \
                      to update backups and reinstall needed files.",
-                    game_path.to_string_lossy()
-                );
-                ret = false;
-            } else {
-                info!("\t{} is unchanged", mod_path.display());
-            }
-        }
+                        game_path.to_string_lossy()
+                    );
+                    Ok(false)
+                } else {
+                    info!("\t{} is unchanged", mod_path.display());
+                    Ok(true)
+                }
+            })
+            .reduce(
+                || -> Fallible<bool> { Ok(true) },
+                |left, right| Ok(left? && right?),
+            )?;
     }
 
-    Ok(ret)
+    Ok(installed_files_ok)
 }
