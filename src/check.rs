@@ -126,7 +126,7 @@ fn verify_backups(p: &Profile) -> Fallible<bool> {
                 if metadata.original_hash.is_none() {
                     return Ok(true);
                 }
-                let original_hash = &metadata.original_hash.unwrap();
+                let original_hash = metadata.original_hash.as_ref().unwrap();
 
                 let backup_path = mod_path_to_backup_path(mod_path);
                 let backup_hash = hash_file(&backup_path)?;

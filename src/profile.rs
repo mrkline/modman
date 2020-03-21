@@ -22,7 +22,7 @@ pub static BACKUP_PATH: &str = "modman-backup/originals";
 
 pub type Sha224Bytes = digest::generic_array::GenericArray<u8, <Sha224 as Digest>::OutputSize>;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FileHash {
     pub bytes: Sha224Bytes,
 }
