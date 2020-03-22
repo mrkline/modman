@@ -107,7 +107,7 @@ fn sanity_check_profile(profile: &Profile) -> Fallible<()> {
         return Err(failure::format_err!(
             "The root directory {} doesn't exist!\n\
              Has it moved since you ran `modman init`?",
-            profile.root_directory.to_string_lossy()
+            profile.root_directory.display()
         ));
     }
 
@@ -122,10 +122,11 @@ pub fn update_profile_file(p: &Profile) -> Fallible<()> {
     // 1. Write to a temporary file, adjacent to the real deal.
     let mut temp_filename = std::ffi::OsString::from(PROFILE_PATH);
     temp_filename.push(".new");
+    let temp_filename = Path::new(&temp_filename);
 
     trace!(
         "Writing updated profile to temp file {}",
-        temp_filename.to_string_lossy()
+        temp_filename.display()
     );
     let mut temp_file = File::create(&temp_filename)?;
     serde_json::to_writer_pretty(&temp_file, p)?;
@@ -134,7 +135,7 @@ pub fn update_profile_file(p: &Profile) -> Fallible<()> {
     // 2. Sync that temporary (for what it's worth)
     temp_file
         .sync_data()
-        .with_context(|_| format!("Couldn't sync {}", temp_filename.to_string_lossy()))?;
+        .with_context(|_| format!("Couldn't sync {}", temp_filename.display()))?;
     drop(temp_file);
 
     // 3. Rename it to the real deal.
@@ -142,7 +143,7 @@ pub fn update_profile_file(p: &Profile) -> Fallible<()> {
     rename(&temp_filename, PROFILE_PATH).with_context(|_| {
         format!(
             "Couldn't rename {} to {}.",
-            temp_filename.to_string_lossy(),
+            temp_filename.display(),
             PROFILE_PATH
         )
     })?;

@@ -130,10 +130,7 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
 
             // Open and hash the mod file.
             // If this isn't a dry run, overwrite the game file.
-            let full_mod_path: String = mod_path
-                .join(mod_file_path.as_path())
-                .to_string_lossy()
-                .into_owned();
+            let full_mod_path = mod_path.join(mod_file_path.as_path());
             let mut mod_file_reader = m.read_file(&mod_file_path)?;
             let mod_hash = if dry_run {
                 // We don't need to write the mod file anywhere, so just hash it.
@@ -143,27 +140,27 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
 
                 debug!(
                     "Installing {} to {}",
-                    full_mod_path,
-                    game_file_path.to_string_lossy()
+                    full_mod_path.display(),
+                    game_file_path.display()
                 );
 
                 // Create any needed directory structure.
                 let game_file_dir = game_file_path.parent().unwrap();
                 create_dir_all(&game_file_dir).with_context(|_| {
-                    format!(
-                        "Couldn't create directory {}",
-                        game_file_dir.to_string_lossy()
-                    )
+                    format!("Couldn't create directory {}", game_file_dir.display())
                 })?;
 
-                let mut game_file = File::create(&game_file_path).with_context(|_| {
-                    format!("Couldn't overwrite {}", game_file_path.to_string_lossy())
-                })?;
+                let mut game_file = File::create(&game_file_path)
+                    .with_context(|_| format!("Couldn't overwrite {}", game_file_path.display()))?;
 
                 hash_and_write(&mut mod_file_reader, &mut game_file)
             }?;
 
-            trace!("Mod file {} hashed to\n{:x}", full_mod_path, mod_hash.bytes);
+            trace!(
+                "Mod file {} hashed to\n{:x}",
+                full_mod_path.display(),
+                mod_hash.bytes
+            );
 
             let meta = ModFileMetadata {
                 mod_hash,
@@ -205,9 +202,9 @@ fn check_for_profile_conflicts(
             if active_mod.files.contains_key(&*mod_file_path) {
                 bail!(
                     "{} from {} would overwrite the same file from {}",
-                    mod_file_path.to_string_lossy(),
-                    mod_path.to_string_lossy(),
-                    active_mod_name.to_string_lossy()
+                    mod_file_path.display(),
+                    mod_path.display(),
+                    active_mod_name.display()
                 );
             }
         }
@@ -234,7 +231,7 @@ fn try_hash_and_backup(
             if open_err.kind() == std::io::ErrorKind::NotFound {
                 debug!(
                     "{} doesn't exist, no need for backup.",
-                    game_file_path.to_string_lossy()
+                    game_file_path.display()
                 );
                 journal.lock().unwrap().add_file(mod_file_path)?;
                 Ok(None)
@@ -243,7 +240,7 @@ fn try_hash_and_backup(
             else {
                 Err(Error::from(open_err.context(format!(
                     "Couldn't open {}",
-                    game_file_path.to_string_lossy()
+                    game_file_path.display()
                 ))))
             }
         }
@@ -258,7 +255,7 @@ fn try_hash_and_backup(
             }?;
             trace!(
                 "Game file {} hashed to\n{:x}",
-                game_file_path.to_string_lossy(),
+                game_file_path.display(),
                 hash.bytes
             );
             Ok(Some(hash))
@@ -278,7 +275,7 @@ fn hash_and_backup<R: BufRead>(
     game_file_path: &Path,
     reader: &mut R,
 ) -> Fallible<FileHash> {
-    debug!("Backing up {}", game_file_path.to_string_lossy());
+    debug!("Backing up {}", game_file_path.display());
 
     // First, copy the file to a temporary location, hashing it as we go.
     let temp_file_path = mod_path_to_temp_path(mod_file_path);
@@ -289,12 +286,8 @@ fn hash_and_backup<R: BufRead>(
     if let Some(parent) = mod_file_path.parent() {
         backup_file_dir.push(parent);
     }
-    create_dir_all(&backup_file_dir).with_context(|_| {
-        format!(
-            "Couldn't create directory {}",
-            backup_file_dir.to_string_lossy()
-        )
-    })?;
+    create_dir_all(&backup_file_dir)
+        .with_context(|_| format!("Couldn't create directory {}", backup_file_dir.display()))?;
 
     let backup_path = backup_file_dir.join(mod_file_path.file_name().unwrap());
     debug_assert!(backup_path == mod_path_to_backup_path(mod_file_path));
@@ -320,14 +313,14 @@ fn hash_and_backup<R: BufRead>(
         // or whatever we want to call it exists.
         bail!(
             "{} already exists (was `modman activate` previously interrupted?)",
-            backup_path.to_string_lossy()
+            backup_path.display()
         );
     }
 
     trace!(
         "Renaming {} to {}",
-        temp_file_path.to_string_lossy(),
-        backup_path.to_string_lossy(),
+        temp_file_path.display(),
+        backup_path.display(),
     );
 
     // Move the backup from the temporary location to its final spot
@@ -335,8 +328,8 @@ fn hash_and_backup<R: BufRead>(
     rename(&temp_file_path, &backup_path).with_context(|_| {
         format!(
             "Couldn't rename {} to {}",
-            temp_file_path.to_string_lossy(),
-            backup_path.to_string_lossy()
+            temp_file_path.display(),
+            backup_path.display()
         )
     })?;
 
@@ -352,12 +345,12 @@ fn hash_and_write_temporary<R: BufRead>(
 ) -> Fallible<FileHash> {
     trace!(
         "Hashing and copying to temp file {}",
-        temp_file_path.to_string_lossy()
+        temp_file_path.display()
     );
 
     // Because it's a temp file, we're fine if this truncates an existing file.
     let mut temp_file = File::create(&temp_file_path)
-        .with_context(|_| format!("Couldn't create {}", temp_file_path.to_string_lossy()))?;
+        .with_context(|_| format!("Couldn't create {}", temp_file_path.display()))?;
 
     let hash = hash_and_write(reader, &mut temp_file)?;
 
@@ -365,7 +358,7 @@ fn hash_and_write_temporary<R: BufRead>(
     // but do what we can to make sure the data actually made it to disk.
     temp_file
         .sync_data()
-        .with_context(|_| format!("Couldn't sync {}", temp_file_path.to_string_lossy()))?;
+        .with_context(|_| format!("Couldn't sync {}", temp_file_path.display()))?;
 
     Ok(hash)
 }

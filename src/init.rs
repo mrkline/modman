@@ -46,10 +46,7 @@ pub fn init_command(args: &[String]) -> Fallible<()> {
 
     let root_path = PathBuf::from(&matches.opt_str("root").unwrap());
     if !root_path.is_dir() {
-        bail!(
-            "{} is not an existing directory!",
-            root_path.to_string_lossy()
-        );
+        bail!("{} is not an existing directory!", root_path.display());
     }
 
     debug!("Writing an empty profile file...");

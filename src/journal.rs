@@ -110,7 +110,7 @@ impl DryRunJournal {
 
 impl Journal for DryRunJournal {
     fn entry(&mut self, kind: &str, p: &Path) -> Fallible<()> {
-        let path_str = p.to_string_lossy();
+        let path_str = p.display();
         eprintln!("{} {}", kind, path_str);
         Ok(())
     }
@@ -132,7 +132,7 @@ impl ActivationJournal {
                         "An activation journal already exists at {}.\n\
                          If a previous run of `modman activate` was interrupted,\n\
                          run `modman repair`.",
-                        get_journal_path().to_string_lossy()
+                        get_journal_path().display()
                     )
                 } else {
                     Error::from(e.context("Couldn't create activation journal"))
@@ -145,7 +145,7 @@ impl ActivationJournal {
 impl Journal for ActivationJournal {
     /// Adds a line to the journal
     fn entry(&mut self, kind: &str, p: &Path) -> Fallible<()> {
-        // In all other places, we've used to_string_lossy(),
+        // In all other places, we've used display(),
         // since they're just for user-facing messages.
         // Here, demand that paths be UTF-8,
         // because reading this back in becomes a cross-platform nightmare

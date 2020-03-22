@@ -18,7 +18,7 @@ pub struct DirectoryMod {
 impl DirectoryMod {
     pub fn new(path: &Path) -> Fallible<Self> {
         let dir_iter = read_dir(path)
-            .with_context(|_| format!("Could not read directory {}", path.to_string_lossy()))?;
+            .with_context(|_| format!("Could not read directory {}", path.display()))?;
 
         let mut version_info: Option<Version> = None;
 
@@ -60,7 +60,7 @@ impl DirectoryMod {
                         base_dir = Some(entry.path());
                     } else {
                         bail!("{} contains things besides a README.txt, a VERSION.txt, and one base directory.",
-                                           path.to_string_lossy());
+                                           path.display());
                     }
                 }
             };
@@ -91,9 +91,8 @@ impl Mod for DirectoryMod {
 
     fn read_file(&self, p: &Path) -> Fallible<Box<dyn BufRead>> {
         let whole_path = self.base_dir.join(p);
-        let f = File::open(&whole_path).with_context(|_| {
-            format!("Couldn't open mod file ({})", whole_path.to_string_lossy())
-        })?;
+        let f = File::open(&whole_path)
+            .with_context(|_| format!("Couldn't open mod file ({})", whole_path.display()))?;
         Ok(Box::new(BufReader::new(f)))
     }
 

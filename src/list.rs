@@ -34,7 +34,7 @@ pub fn list_command(args: &[String]) -> Fallible<()> {
     let p = load_and_check_profile()?;
 
     for (mod_name, mod_manifest) in p.mods {
-        println!("{} (v{})", mod_name.to_string_lossy(), mod_manifest.version);
+        println!("{} (v{})", mod_name.display(), mod_manifest.version);
         if print_readme {
             // We don't store READMEs in the manifest, so go get the mod itself.
             match open_mod(&mod_name) {
@@ -48,14 +48,14 @@ pub fn list_command(args: &[String]) -> Fallible<()> {
                 }
                 Err(e) => warn!(
                     "Couldn't open mod {}:\n{}",
-                    mod_name.to_string_lossy(),
+                    mod_name.display(),
                     pretty_error(&e)
                 ),
             }
         }
         if print_files {
             for f in mod_manifest.files.keys() {
-                println!("\t{}", f.to_string_lossy());
+                println!("\t{}", f.display());
             }
         }
     }

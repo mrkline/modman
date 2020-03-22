@@ -9,9 +9,9 @@ use sha2::*;
 use crate::profile::*;
 
 pub fn hash_file(path: &Path) -> Fallible<FileHash> {
-    trace!("Hashing {}", path.to_string_lossy());
-    let f = std::fs::File::open(&path)
-        .with_context(|_| format!("Couldn't open {}", path.to_string_lossy()))?;
+    trace!("Hashing {}", path.display());
+    let f =
+        std::fs::File::open(&path).with_context(|_| format!("Couldn't open {}", path.display()))?;
     hash_contents(&mut std::io::BufReader::new(f))
 }
 
@@ -62,8 +62,8 @@ pub fn collect_file_paths_in_dir(base_dir: &Path) -> Fallible<Vec<PathBuf>> {
 }
 
 fn dir_walker(base_dir: &Path, dir: &Path, file_list: &mut Vec<PathBuf>) -> Fallible<()> {
-    let dir_iter = read_dir(dir)
-        .with_context(|_| format!("Could not read directory {}", dir.to_string_lossy()))?;
+    let dir_iter =
+        read_dir(dir).with_context(|_| format!("Could not read directory {}", dir.display()))?;
     for entry in dir_iter {
         let entry = entry?;
         let ft = entry.file_type()?;
@@ -76,10 +76,7 @@ fn dir_walker(base_dir: &Path, dir: &Path, file_list: &mut Vec<PathBuf>) -> Fall
         }
         // We don't expect any symbolic links or other unusual things.
         else {
-            bail!(
-                "{} isn't a file or a directory",
-                entry.path().to_string_lossy()
-            );
+            bail!("{} isn't a file or a directory", entry.path().display());
         }
     }
     Ok(())
@@ -93,24 +90,19 @@ pub fn remove_empty_parents(mut p: &Path) -> Fallible<()> {
         if *parent == *backup_path || read_dir(&parent)?.count() > 0 {
             break;
         }
-        debug!("Removing empty directory {}", parent.to_string_lossy());
+        debug!("Removing empty directory {}", parent.display());
         remove_dir(&parent)
             .or_else(|e| {
                 if e.kind() == std::io::ErrorKind::NotFound {
                     // If we're doing removes in parallel, there's a chance
                     // another thread got it already
-                    // warn!("{} was already removed!", parent.to_string_lossy());
+                    // warn!("{} was already removed!", parent.display());
                     Ok(())
                 } else {
                     Err(e)
                 }
             })
-            .with_context(|_| {
-                format!(
-                    "Couldn't remove empty directory {}",
-                    parent.to_string_lossy()
-                )
-            })?;
+            .with_context(|_| format!("Couldn't remove empty directory {}", parent.display()))?;
         p = parent;
     }
     Ok(())

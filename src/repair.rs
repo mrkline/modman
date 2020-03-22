@@ -91,7 +91,7 @@ fn try_to_undo(path: &Path, action: JournalAction, p: &Profile, dry_run: bool) -
         bail!(
             "{} is referenced in both the activation jurnal and the profile. \
         Something is wrong - journals should be deleted before their mod is added to the profile.",
-            path.to_string_lossy()
+            path.display()
         );
     }
 
@@ -102,18 +102,18 @@ fn try_to_undo(path: &Path, action: JournalAction, p: &Profile, dry_run: bool) -
 }
 
 fn try_to_remove(path: &Path, p: &Profile, dry_run: bool) -> Fallible<()> {
-    info!("Remove {}", path.to_string_lossy());
+    info!("Remove {}", path.display());
     if !dry_run {
         let game_path = mod_path_to_game_path(path, &p.root_directory);
         remove_file(&game_path)
-            .with_context(|_| format!("Couldn't remove {}", game_path.to_string_lossy()))?;
+            .with_context(|_| format!("Couldn't remove {}", game_path.display()))?;
     }
 
     Ok(())
 }
 
 fn try_to_restore(path: &Path, p: &Profile, dry_run: bool) -> Fallible<()> {
-    info!("Restore {}", path.to_string_lossy());
+    info!("Restore {}", path.display());
     if !dry_run {
         let backup_path = mod_path_to_backup_path(path);
         let game_path = mod_path_to_game_path(path, &p.root_directory);
@@ -121,13 +121,13 @@ fn try_to_restore(path: &Path, p: &Profile, dry_run: bool) -> Fallible<()> {
         copy(&backup_path, &game_path).with_context(|_| {
             format!(
                 "Couldn't copy {} to {}",
-                backup_path.to_string_lossy(),
-                game_path.to_string_lossy()
+                backup_path.display(),
+                game_path.display()
             )
         })?;
         // If restoration succeeds, let's remove the backup.
         remove_file(&backup_path)
-            .with_context(|_| format!("Couldn't remove {}", backup_path.to_string_lossy()))?;
+            .with_context(|_| format!("Couldn't remove {}", backup_path.display()))?;
     }
 
     Ok(())

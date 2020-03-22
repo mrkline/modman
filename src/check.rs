@@ -100,7 +100,7 @@ fn find_unknown_files(p: &Profile) -> Fallible<bool> {
                            but aren't known by modman:"
             .to_owned();
         for file in &unknown_files {
-            warning += &format!("\n\t{}", file.to_string_lossy());
+            warning += &format!("\n\t{}", file.display());
         }
         warn!("{}", warning);
         ret = false;
@@ -133,7 +133,7 @@ fn verify_backups(p: &Profile) -> Fallible<bool> {
                 if backup_hash != *original_hash {
                     debug!(
                         "{} hashed to\n{:x},\nexpected {:x}",
-                        backup_path.to_string_lossy(),
+                        backup_path.display(),
                         backup_hash.bytes,
                         original_hash.bytes
                     );
@@ -141,7 +141,7 @@ fn verify_backups(p: &Profile) -> Fallible<bool> {
                         "The backup of {} has changed!\n\
                      Please repair your game files, then run `modman update` \
                      to make new backups.",
-                        mod_path.to_string_lossy()
+                        mod_path.display()
                     );
                     Ok(false)
                 } else {
@@ -174,7 +174,7 @@ fn verify_installed_mod_files(p: &Profile) -> Fallible<bool> {
                 if game_hash != metadata.mod_hash {
                     debug!(
                         "{} hashed to\n{:x},\nexpected {:x}",
-                        game_path.to_string_lossy(),
+                        game_path.display(),
                         game_hash.bytes,
                         metadata.mod_hash.bytes
                     );
@@ -182,7 +182,7 @@ fn verify_installed_mod_files(p: &Profile) -> Fallible<bool> {
                         "{} has changed!\n\
                      If the game has been updated, run `modman update` \
                      to update backups and reinstall needed files.",
-                        game_path.to_string_lossy()
+                        game_path.display()
                     );
                     Ok(false)
                 } else {

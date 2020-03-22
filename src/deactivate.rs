@@ -60,7 +60,7 @@ pub fn deactivate_command(args: &[String]) -> Fallible<()> {
 fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
     // First sanity check: this mod is in the profile
     let removed_mod: ModManifest = p.mods.remove(mod_path).ok_or_else(|| {
-        return format_err!("{} hasn't been activated.", mod_path.to_string_lossy());
+        return format_err!("{} hasn't been activated.", mod_path.display());
     })?;
 
     // Everything after this is filesystem work.
@@ -110,13 +110,13 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
             remove_file(&game_path)
                 .or_else(|e| {
                     if e.kind() == std::io::ErrorKind::NotFound {
-                        warn!("{} was already removed!", game_path.to_string_lossy());
+                        warn!("{} was already removed!", game_path.display());
                         Ok(())
                     } else {
                         Err(e)
                     }
                 })
-                .with_context(|_| format!("Couldn't remove {}", game_path.to_string_lossy()))?;
+                .with_context(|_| format!("Couldn't remove {}", game_path.display()))?;
             remove_empty_parents(&game_path)
         })?;
 
@@ -127,9 +127,9 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
         .filter(|(_f, m)| m.original_hash.is_some())
         .try_for_each(|(file, _)| {
             let backup_path = mod_path_to_backup_path(file);
-            debug!("Removing {}", backup_path.to_string_lossy());
+            debug!("Removing {}", backup_path.display());
             remove_file(&backup_path)
-                .with_context(|_| format!("Couldn't remove {}", backup_path.to_string_lossy()))?;
+                .with_context(|_| format!("Couldn't remove {}", backup_path.display()))?;
             remove_empty_parents(&backup_path)
         })?;
 
@@ -149,8 +149,8 @@ fn restore_file_from_backup(
     let game_path = mod_path_to_game_path(mod_path, root_directory);
     debug!(
         "Restoring {} to {}",
-        backup_path.to_string_lossy(),
-        game_path.to_string_lossy()
+        backup_path.display(),
+        game_path.display()
     );
 
     // We could use fs::copy(), but let's sanity check that we're putting back
@@ -159,30 +159,26 @@ fn restore_file_from_backup(
     let mut reader = BufReader::new(File::open(&backup_path).with_context(|_| {
         format!(
             "Couldn't open {} to restore it to {}",
-            backup_path.to_string_lossy(),
-            game_path.to_string_lossy()
+            backup_path.display(),
+            game_path.display()
         )
     })?);
     // Because we're restoring contents, this will truncate an existing file.
-    let mut game_file = File::create(&game_path).with_context(|_| {
-        format!(
-            "Couldn't open {} to overwrite it",
-            game_path.to_string_lossy()
-        )
-    })?;
+    let mut game_file = File::create(&game_path)
+        .with_context(|_| format!("Couldn't open {} to overwrite it", game_path.display()))?;
 
     let hash = hash_and_write(&mut reader, &mut game_file)?;
     trace!(
         "Backup file {} hashed to\n{:x}",
-        backup_path.to_string_lossy(),
+        backup_path.display(),
         hash.bytes
     );
     if hash != *mod_meta.original_hash.as_ref().unwrap() {
         bail!(
             "{}'s contents didn't match the hash stored in the profile file
                            when it was restored to {}",
-            backup_path.to_string_lossy(),
-            game_path.to_string_lossy()
+            backup_path.display(),
+            game_path.display()
         );
     }
 
