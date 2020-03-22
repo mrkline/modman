@@ -68,12 +68,13 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
         return Ok(());
     }
 
-    // We'll do this in a few steps to minimize the chance that backed-up data
+    // We'll do this in a few steps to minimize the chance that data
     // is lost:
-    // 1. Restore all files from backups.
-    // 2. Remove mod files that needed no backup.
-    // 3. Remove the mod from the profile.
-    // 4. Remove the backups.
+    // 1. Verify that all the files we installed are unmodified (add flag to skip?)
+    // 2. Restore all files from backups.
+    // 3. Remove mod files that needed no backup.
+    // 4. Remove the mod from the profile.
+    // 5. Remove the backups.
     //
     // Unlike activation, we don't need to keep a journal since we don't
     // do anything destructive until we've restored all backups.
@@ -83,8 +84,33 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
     // We could split files that need backups and ones that don't
     // using Iterator::partition(), but it seems simpler to iterate twice
     // instead of allocating storage for partitioned references.
+    info!("Checking that all mod files installed by {} are unmodified...", mod_path.display());
+    let all_intact = removed_mod
+        .files
+        .par_iter()
+        .map(|(file, meta)| {
+            let hash_matches =
+                meta.mod_hash == hash_file(&mod_path_to_game_path(file, &p.root_directory))?;
+            if !hash_matches {
+                warn!(
+                    "Mod file {} has changed from when it was installed by mod {}",
+                    file.display(),
+                    mod_path.display()
+                );
+            }
+            Ok(hash_matches)
+        })
+        .reduce(
+            || -> Fallible<bool> { Ok(true) },
+            |left, right| Ok(left? && right?),
+        )?;
 
-    // Step 1:
+    if !all_intact {
+        bail!("Some installed mod files were changed. Did the game update?");
+    }
+    info!("All mod files from {} are intact!", mod_path.display());
+
+    // Step 2:
     removed_mod
         .files
         .par_iter()
@@ -97,7 +123,7 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
             // the game directory is as it started.
         })?;
 
-    // Step 2:
+    // Step 3:
     removed_mod
         .files
         .par_iter()
@@ -121,10 +147,10 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
             remove_empty_parents(&game_path)
         })?;
 
-    // Step 3:
+    // Step 4:
     update_profile_file(&p)?;
 
-    // Step 4:
+    // Step 5:
     removed_mod
         .files
         .par_iter()
