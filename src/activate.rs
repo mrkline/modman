@@ -17,10 +17,12 @@ use crate::usage::*;
 static USAGE: &str = r#"Usage: modman add/activate [options] <MOD>
 
 Activate a mod at the path <MOD>.
-Mods can be in two formats:
-  1. A directory containing a VERSION.txt file, a README.txt file,
-     and a single directory, which will be treated as the root of the mod files.
-  2. A .zip archive containing the same.
+Each mod is assumed to be a directory containing a VERSION.txt file,
+a README.txt file, and a single directory,
+which will be treated as the root of the mod files.
+(Any unzipped JSGME or OVGME-compatible archive should match this format.)
+
+.zip support is planned for a future release.
 "#;
 
 pub fn activate_command(args: &[String]) -> Fallible<()> {
