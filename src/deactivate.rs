@@ -72,7 +72,8 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
     // is lost:
     // 1. Restore all files from backups.
     // 2. Remove mod files that needed no backup.
-    // 3. Remove the backups.
+    // 3. Remove the mod from the profile.
+    // 4. Remove the backups.
     //
     // Unlike activation, we don't need to keep a journal since we don't
     // do anything destructive until we've restored all backups.
@@ -121,6 +122,9 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
         })?;
 
     // Step 3:
+    update_profile_file(&p)?;
+
+    // Step 4:
     removed_mod
         .files
         .par_iter()
@@ -132,8 +136,6 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
                 .with_context(|_| format!("Couldn't remove {}", backup_path.display()))?;
             remove_empty_parents(&backup_path)
         })?;
-
-    update_profile_file(&p)?;
 
     Ok(())
 }
