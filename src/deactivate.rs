@@ -174,7 +174,7 @@ fn restore_file_from_backup(
         hash.bytes
     );
     if hash != *mod_meta.original_hash.as_ref().unwrap() {
-        bail!(
+        warn!(
             "{}'s contents didn't match the hash stored in the profile file
                            when it was restored to {}",
             backup_path.display(),
