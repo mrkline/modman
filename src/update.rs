@@ -201,7 +201,13 @@ fn backup_file(game_file_path: &Path, mod_file_path: &Path) -> Result<()> {
         game_file_path.display(),
         temp_file_path.display()
     );
-    fs::copy(game_file_path, &temp_file_path)?;
+    fs::copy(game_file_path, &temp_file_path).with_context(|| {
+        format!(
+            "Couldn't copy {} to {}",
+            game_file_path.display(),
+            temp_file_path.display()
+        )
+    })?;
 
     // Next, create any needed directory structure.
     let mut backup_file_dir = PathBuf::from(BACKUP_PATH);

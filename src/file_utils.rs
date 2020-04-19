@@ -62,7 +62,7 @@ pub fn collect_file_paths_in_dir(base_dir: &Path) -> Result<Vec<PathBuf>> {
 
 fn dir_walker(base_dir: &Path, dir: &Path, file_list: &mut Vec<PathBuf>) -> Result<()> {
     let dir_iter =
-        fs::read_dir(dir).with_context(|| format!("Could not read directory {}", dir.display()))?;
+        fs::read_dir(dir).with_context(|| format!("Couldn't read directory {}", dir.display()))?;
     for entry in dir_iter {
         let entry = entry?;
         let ft = entry.file_type()?;
@@ -86,23 +86,36 @@ pub fn remove_empty_parents(mut p: &Path) -> Result<()> {
 
     while let Some(parent) = p.parent() {
         // Kludge: Avoid removing BACKUP_PATH entirely on a clean sweep.
-        if *parent == *backup_path || fs::read_dir(&parent)?.count() > 0 {
-            break;
+        if *parent == *backup_path {
+            return Ok(());
         }
-        debug!("Removing empty directory {}", parent.display());
-        fs::remove_dir(&parent)
-            .or_else(|e| {
-                if e.kind() == std::io::ErrorKind::NotFound {
-                    // If we're doing removes in parallel, there's a chance
-                    // another thread got it already
-                    // warn!("{} was already removed!", parent.display());
-                    Ok(())
-                } else {
-                    Err(e)
+        let removal = fs::remove_dir(&parent);
+        if let Err(e) = removal {
+            return match e.kind() {
+                // If we're doing removes in parallel, there's a chance
+                // another thread got it already
+                std::io::ErrorKind::NotFound => Ok(()),
+                // If the directory isn't empty...
+                std::io::ErrorKind::Other => {
+                    let raw_error = e.raw_os_error().expect("No errno");
+                    // POSIX can return ENOTEMPTY (39).
+                    // Windows seems to return ERROR_DIR_NOT_EMPTY (145)
+                    if (cfg!(unix) && raw_error == 39) || (cfg!(windows) && raw_error == 145) {
+                        Ok(())
+                    } else {
+                        Err(Error::from(e))
+                    }
                 }
-            })
-            .with_context(|| format!("Couldn't remove empty directory {}", parent.display()))?;
-        p = parent;
+                _ => Err(Error::from(e)),
+            }
+            .context(format!(
+                "Couldn't remove empty directory {}",
+                parent.display()
+            ));
+        } else {
+            debug!("Removed empty directory {}", parent.display());
+            p = parent;
+        }
     }
-    Ok(())
+    unreachable!("remove_empty_parents() got to a filesystem root");
 }

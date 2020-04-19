@@ -1,4 +1,4 @@
-use std::fs::metadata;
+use std::fs;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
@@ -21,7 +21,7 @@ pub trait Mod {
 
 pub fn open_mod(p: &Path) -> Result<Box<dyn Mod + Sync>> {
     // Alright, let's stat the thing:
-    let stat = metadata(p).with_context(|| format!("Couldn't find {}", p.display()))?;
+    let stat = fs::metadata(p).with_context(|| format!("Couldn't find {}", p.display()))?;
 
     if stat.is_dir() {
         let d = DirectoryMod::new(p)

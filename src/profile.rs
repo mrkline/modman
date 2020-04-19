@@ -128,7 +128,8 @@ pub fn update_profile_file(p: &Profile) -> Result<()> {
         "Writing updated profile to temp file {}",
         temp_filename.display()
     );
-    let mut temp_file = fs::File::create(&temp_filename)?;
+    let mut temp_file = fs::File::create(&temp_filename)
+        .with_context(|| format!("Couldn't create temp file {}", temp_filename.display()))?;
     serde_json::to_writer_pretty(&temp_file, p)?;
     temp_file.write_all(b"\n")?;
 
