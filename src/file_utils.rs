@@ -106,6 +106,17 @@ pub fn remove_empty_parents(mut p: &Path) -> Result<()> {
                         Err(Error::from(e))
                     }
                 }
+                // Windows seems to return access denied (error 5)
+                // sometimes as well. Maybe there's an I/O lock while
+                // another thread is trying to remove it?
+                std::io::ErrorKind::PermissionDenied => {
+                    if cfg!(windows) {
+                        Ok(())
+                    }
+                    else {
+                        Err(Error::from(e))
+                    }
+                }
                 _ => Err(Error::from(e)),
             }
             .context(format!(
