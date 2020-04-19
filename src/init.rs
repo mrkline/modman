@@ -1,5 +1,5 @@
 use std::default::Default;
-use std::fs::*;
+use std::fs;
 use std::io::prelude::*;
 use std::path::PathBuf;
 
@@ -59,11 +59,11 @@ pub fn init_command(args: &[String]) -> Fallible<()> {
 
     info!("Profile written to {}", PROFILE_PATH);
 
-    if let Some(mkdir_err) = create_dir(STORAGE_PATH).err() {
+    if let Some(mkdir_err) = fs::create_dir(STORAGE_PATH).err() {
         if mkdir_err.kind() == std::io::ErrorKind::AlreadyExists {
             // Let's remove the profile file we just created so that
             // the user doesn't get an error that it exists next time.
-            remove_file(PROFILE_PATH).context(
+            fs::remove_file(PROFILE_PATH).context(
                 "Failed to remove profile file after discovering a backup directory already exists.")?;
             bail!(
                 "A backup directory ({}/) already exists.\n\
@@ -75,9 +75,9 @@ pub fn init_command(args: &[String]) -> Fallible<()> {
         }
     }
 
-    create_dir(TEMPDIR_PATH).context("Couldn't create temporary storage directory ({}/)")?;
-    create_dir(BACKUP_PATH).context("Couldn't create backup directory ({}/)")?;
-    OpenOptions::new()
+    fs::create_dir(TEMPDIR_PATH).context("Couldn't create temporary storage directory ({}/)")?;
+    fs::create_dir(BACKUP_PATH).context("Couldn't create backup directory ({}/)")?;
+    fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(BACKUP_README)?

@@ -1,5 +1,5 @@
 use std::collections::*;
-use std::fs::*;
+use std::fs;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
@@ -42,7 +42,7 @@ pub fn get_journal_path() -> PathBuf {
 
 pub fn delete_journal(j: Box<dyn Journal>) -> Fallible<()> {
     drop(j);
-    remove_file(get_journal_path()).context("Couldn't delete activation journal")?;
+    fs::remove_file(get_journal_path()).context("Couldn't delete activation journal")?;
     Ok(())
 }
 
@@ -57,7 +57,7 @@ pub type JournalMap = BTreeMap<PathBuf, JournalAction>;
 pub fn read_journal() -> Fallible<JournalMap> {
     // Could be Result::or_else except we want to return from the
     // function inside the Err arm.
-    let f = match File::open(get_journal_path()) {
+    let f = match fs::File::open(get_journal_path()) {
         Ok(f) => f,
         Err(open_err) => {
             // No problem if there's no journal
@@ -117,12 +117,12 @@ impl Journal for DryRunJournal {
 }
 
 struct ActivationJournal {
-    fd: File,
+    fd: fs::File,
 }
 
 impl ActivationJournal {
     fn new() -> Fallible<Self> {
-        let fd = OpenOptions::new()
+        let fd = fs::OpenOptions::new()
             .write(true)
             .create_new(true)
             .open(get_journal_path())

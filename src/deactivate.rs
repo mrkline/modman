@@ -1,4 +1,4 @@
-use std::fs::*;
+use std::fs;
 use std::io::BufReader;
 use std::path::Path;
 
@@ -134,7 +134,7 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
             // Keep moving if it's already gone,
             // which gets us to step 3 if a previous run of deactivate
             // was interrupted.
-            remove_file(&game_path)
+            fs::remove_file(&game_path)
                 .or_else(|e| {
                     if e.kind() == std::io::ErrorKind::NotFound {
                         warn!("{} was already removed!", game_path.display());
@@ -158,7 +158,7 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
         .try_for_each(|(file, _)| {
             let backup_path = mod_path_to_backup_path(file);
             debug!("Removing {}", backup_path.display());
-            remove_file(&backup_path)
+            fs::remove_file(&backup_path)
                 .with_context(|_| format!("Couldn't remove {}", backup_path.display()))?;
             remove_empty_parents(&backup_path)
         })?;
@@ -184,7 +184,7 @@ fn restore_file_from_backup(
     // We could use fs::copy(), but let's sanity check that we're putting back
     // the bits we got in the first place.
 
-    let mut reader = BufReader::new(File::open(&backup_path).with_context(|_| {
+    let mut reader = BufReader::new(fs::File::open(&backup_path).with_context(|_| {
         format!(
             "Couldn't open {} to restore it to {}",
             backup_path.display(),
@@ -192,7 +192,7 @@ fn restore_file_from_backup(
         )
     })?);
     // Because we're restoring contents, this will truncate an existing file.
-    let mut game_file = File::create(&game_path)
+    let mut game_file = fs::File::create(&game_path)
         .with_context(|_| format!("Couldn't open {} to overwrite it", game_path.display()))?;
 
     let hash = hash_and_write(&mut reader, &mut game_file)?;

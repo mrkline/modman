@@ -1,4 +1,4 @@
-use std::fs::*;
+use std::fs;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::*;
@@ -17,7 +17,7 @@ pub struct DirectoryMod {
 
 impl DirectoryMod {
     pub fn new(path: &Path) -> Fallible<Self> {
-        let dir_iter = read_dir(path)
+        let dir_iter = fs::read_dir(path)
             .with_context(|_| format!("Could not read directory {}", path.display()))?;
 
         let mut version_info: Option<Version> = None;
@@ -41,7 +41,7 @@ impl DirectoryMod {
                 }
                 "VERSION.txt" => {
                     assert!(version_info.is_none());
-                    let mut vf = File::open(entry.path()).context("Couldn't open VERSION.txt")?;
+                    let mut vf = fs::File::open(entry.path()).context("Couldn't open VERSION.txt")?;
                     let mut version_string = String::new();
                     vf.read_to_string(&mut version_string)?;
                     version_info = Some(
@@ -50,7 +50,7 @@ impl DirectoryMod {
                 }
                 "README.txt" => {
                     assert!(readme.is_none());
-                    let mut rf = File::open(entry.path()).context("Couldn't open README.txt")?;
+                    let mut rf = fs::File::open(entry.path()).context("Couldn't open README.txt")?;
                     let mut readme_string = String::new();
                     rf.read_to_string(&mut readme_string)?;
                     readme = Some(readme_string);
@@ -91,7 +91,7 @@ impl Mod for DirectoryMod {
 
     fn read_file(&self, p: &Path) -> Fallible<Box<dyn BufRead>> {
         let whole_path = self.base_dir.join(p);
-        let f = File::open(&whole_path)
+        let f = fs::File::open(&whole_path)
             .with_context(|_| format!("Couldn't open mod file ({})", whole_path.display()))?;
         Ok(Box::new(BufReader::new(f)))
     }

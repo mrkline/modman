@@ -1,4 +1,4 @@
-use std::fs::*;
+use std::fs;
 use std::path::Path;
 
 use failure::*;
@@ -71,7 +71,7 @@ pub fn repair_command(args: &[String]) -> Fallible<()> {
                 "Repair complete, removing journal file. \
                  Game files should be as they were before the interrupted `modman activate`."
             );
-            remove_file(get_journal_path()).context("Couldn't delete activation journal")?;
+            fs::remove_file(get_journal_path()).context("Couldn't delete activation journal")?;
         }
     } else {
         bail!(
@@ -105,7 +105,7 @@ fn try_to_remove(path: &Path, p: &Profile, dry_run: bool) -> Fallible<()> {
     info!("Remove {}", path.display());
     if !dry_run {
         let game_path = mod_path_to_game_path(path, &p.root_directory);
-        remove_file(&game_path)
+        fs::remove_file(&game_path)
             .with_context(|_| format!("Couldn't remove {}", game_path.display()))?;
     }
 
@@ -118,7 +118,7 @@ fn try_to_restore(path: &Path, p: &Profile, dry_run: bool) -> Fallible<()> {
         let backup_path = mod_path_to_backup_path(path);
         let game_path = mod_path_to_game_path(path, &p.root_directory);
         // Let copy fail if the backup doesn't exist.
-        copy(&backup_path, &game_path).with_context(|_| {
+        fs::copy(&backup_path, &game_path).with_context(|_| {
             format!(
                 "Couldn't copy {} to {}",
                 backup_path.display(),
@@ -126,7 +126,7 @@ fn try_to_restore(path: &Path, p: &Profile, dry_run: bool) -> Fallible<()> {
             )
         })?;
         // If restoration succeeds, let's remove the backup.
-        remove_file(&backup_path)
+        fs::remove_file(&backup_path)
             .with_context(|_| format!("Couldn't remove {}", backup_path.display()))?;
     }
 

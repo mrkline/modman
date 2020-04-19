@@ -1,6 +1,6 @@
 use std::collections::*;
 use std::default::Default;
-use std::fs::*;
+use std::fs;
 use std::io::prelude::*;
 use std::path::*;
 
@@ -76,7 +76,7 @@ pub struct ProfileFileData {
 }
 
 pub fn create_new_profile_file(p: &Profile) -> Fallible<()> {
-    let mut f = OpenOptions::new()
+    let mut f = fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(PROFILE_PATH)
@@ -94,7 +94,7 @@ pub fn create_new_profile_file(p: &Profile) -> Fallible<()> {
 
 pub fn load_and_check_profile() -> Fallible<Profile> {
     info!("Loading profile...");
-    let f = File::open(PROFILE_PATH)
+    let f = fs::File::open(PROFILE_PATH)
         .with_context(|_| format!("Couldn't open profile file ({})", PROFILE_PATH))?;
 
     let p: Profile = serde_json::from_reader(f).context("Couldn't parse profile file")?;
@@ -128,7 +128,7 @@ pub fn update_profile_file(p: &Profile) -> Fallible<()> {
         "Writing updated profile to temp file {}",
         temp_filename.display()
     );
-    let mut temp_file = File::create(&temp_filename)?;
+    let mut temp_file = fs::File::create(&temp_filename)?;
     serde_json::to_writer_pretty(&temp_file, p)?;
     temp_file.write_all(b"\n")?;
 
@@ -140,7 +140,7 @@ pub fn update_profile_file(p: &Profile) -> Fallible<()> {
 
     // 3. Rename it to the real deal.
     trace!("Renaming updated profile to {}", PROFILE_PATH);
-    rename(&temp_filename, PROFILE_PATH).with_context(|_| {
+    fs::rename(&temp_filename, PROFILE_PATH).with_context(|_| {
         format!(
             "Couldn't rename {} to {}.",
             temp_filename.display(),

@@ -1,5 +1,5 @@
 use std::collections::*;
-use std::fs::*;
+use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc::channel, Mutex};
@@ -148,11 +148,11 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
 
                 // Create any needed directory structure.
                 let game_file_dir = game_file_path.parent().unwrap();
-                create_dir_all(&game_file_dir).with_context(|_| {
+                fs::create_dir_all(&game_file_dir).with_context(|_| {
                     format!("Couldn't create directory {}", game_file_dir.display())
                 })?;
 
-                let mut game_file = File::create(&game_file_path)
+                let mut game_file = fs::File::create(&game_file_path)
                     .with_context(|_| format!("Couldn't overwrite {}", game_file_path.display()))?;
 
                 hash_and_write(&mut mod_file_reader, &mut game_file)
@@ -227,7 +227,7 @@ fn try_hash_and_backup(
 
     // Try to open a file in the game directory at mod_file_path,
     // to see if it exists.
-    match File::open(&game_file_path) {
+    match fs::File::open(&game_file_path) {
         Err(open_err) => {
             // If there's no file there, great. Less work for us.
             if open_err.kind() == std::io::ErrorKind::NotFound {
@@ -288,7 +288,7 @@ fn hash_and_backup<R: BufRead>(
     if let Some(parent) = mod_file_path.parent() {
         backup_file_dir.push(parent);
     }
-    create_dir_all(&backup_file_dir)
+    fs::create_dir_all(&backup_file_dir)
         .with_context(|_| format!("Couldn't create directory {}", backup_file_dir.display()))?;
 
     let backup_path = backup_file_dir.join(mod_file_path.file_name().unwrap());
@@ -327,7 +327,7 @@ fn hash_and_backup<R: BufRead>(
 
     // Move the backup from the temporary location to its final spot
     // in the backup directory.
-    rename(&temp_file_path, &backup_path).with_context(|_| {
+    fs::rename(&temp_file_path, &backup_path).with_context(|_| {
         format!(
             "Couldn't rename {} to {}",
             temp_file_path.display(),
@@ -351,7 +351,7 @@ fn hash_and_write_temporary<R: BufRead>(
     );
 
     // Because it's a temp file, we're fine if this truncates an existing file.
-    let mut temp_file = File::create(&temp_file_path)
+    let mut temp_file = fs::File::create(&temp_file_path)
         .with_context(|_| format!("Couldn't create {}", temp_file_path.display()))?;
 
     let hash = hash_and_write(reader, &mut temp_file)?;

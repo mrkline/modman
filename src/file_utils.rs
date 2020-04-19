@@ -1,4 +1,4 @@
-use std::fs::*;
+use std::fs;
 use std::io::prelude::*;
 use std::path::*;
 
@@ -11,7 +11,7 @@ use crate::profile::*;
 pub fn hash_file(path: &Path) -> Fallible<FileHash> {
     trace!("Hashing {}", path.display());
     let f =
-        std::fs::File::open(&path).with_context(|_| format!("Couldn't open {}", path.display()))?;
+        fs::File::open(&path).with_context(|_| format!("Couldn't open {}", path.display()))?;
     hash_contents(&mut std::io::BufReader::new(f))
 }
 
@@ -63,7 +63,7 @@ pub fn collect_file_paths_in_dir(base_dir: &Path) -> Fallible<Vec<PathBuf>> {
 
 fn dir_walker(base_dir: &Path, dir: &Path, file_list: &mut Vec<PathBuf>) -> Fallible<()> {
     let dir_iter =
-        read_dir(dir).with_context(|_| format!("Could not read directory {}", dir.display()))?;
+        fs::read_dir(dir).with_context(|_| format!("Could not read directory {}", dir.display()))?;
     for entry in dir_iter {
         let entry = entry?;
         let ft = entry.file_type()?;
@@ -87,11 +87,11 @@ pub fn remove_empty_parents(mut p: &Path) -> Fallible<()> {
 
     while let Some(parent) = p.parent() {
         // Kludge: Avoid removing BACKUP_PATH entirely on a clean sweep.
-        if *parent == *backup_path || read_dir(&parent)?.count() > 0 {
+        if *parent == *backup_path || fs::read_dir(&parent)?.count() > 0 {
             break;
         }
         debug!("Removing empty directory {}", parent.display());
-        remove_dir(&parent)
+        fs::remove_dir(&parent)
             .or_else(|e| {
                 if e.kind() == std::io::ErrorKind::NotFound {
                     // If we're doing removes in parallel, there's a chance
