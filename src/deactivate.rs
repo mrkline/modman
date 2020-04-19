@@ -84,7 +84,10 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
     // We could split files that need backups and ones that don't
     // using Iterator::partition(), but it seems simpler to iterate twice
     // instead of allocating storage for partitioned references.
-    info!("Checking that all mod files installed by {} are unmodified...", mod_path.display());
+    info!(
+        "Checking that all mod files installed by {} are unmodified...",
+        mod_path.display()
+    );
     let all_intact = removed_mod
         .files
         .par_iter()

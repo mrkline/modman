@@ -10,8 +10,7 @@ use crate::profile::*;
 
 pub fn hash_file(path: &Path) -> Fallible<FileHash> {
     trace!("Hashing {}", path.display());
-    let f =
-        fs::File::open(&path).with_context(|_| format!("Couldn't open {}", path.display()))?;
+    let f = fs::File::open(&path).with_context(|_| format!("Couldn't open {}", path.display()))?;
     hash_contents(&mut std::io::BufReader::new(f))
 }
 
@@ -62,8 +61,8 @@ pub fn collect_file_paths_in_dir(base_dir: &Path) -> Fallible<Vec<PathBuf>> {
 }
 
 fn dir_walker(base_dir: &Path, dir: &Path, file_list: &mut Vec<PathBuf>) -> Fallible<()> {
-    let dir_iter =
-        fs::read_dir(dir).with_context(|_| format!("Could not read directory {}", dir.display()))?;
+    let dir_iter = fs::read_dir(dir)
+        .with_context(|_| format!("Could not read directory {}", dir.display()))?;
     for entry in dir_iter {
         let entry = entry?;
         let ft = entry.file_type()?;

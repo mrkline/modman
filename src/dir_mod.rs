@@ -41,7 +41,8 @@ impl DirectoryMod {
                 }
                 "VERSION.txt" => {
                     assert!(version_info.is_none());
-                    let mut vf = fs::File::open(entry.path()).context("Couldn't open VERSION.txt")?;
+                    let mut vf =
+                        fs::File::open(entry.path()).context("Couldn't open VERSION.txt")?;
                     let mut version_string = String::new();
                     vf.read_to_string(&mut version_string)?;
                     version_info = Some(
@@ -50,7 +51,8 @@ impl DirectoryMod {
                 }
                 "README.txt" => {
                     assert!(readme.is_none());
-                    let mut rf = fs::File::open(entry.path()).context("Couldn't open README.txt")?;
+                    let mut rf =
+                        fs::File::open(entry.path()).context("Couldn't open README.txt")?;
                     let mut readme_string = String::new();
                     rf.read_to_string(&mut readme_string)?;
                     readme = Some(readme_string);
