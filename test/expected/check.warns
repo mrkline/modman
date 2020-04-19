@@ -7,4 +7,4 @@ WARN - The backup of A.txt has changed!
 Please repair your game files, then run `modman update` to make new backups.
 WARN - rootdir/A.txt has changed!
 If the game has been updated, run `modman update` to update backups and reinstall needed files.
-ERROR - Checks failed!
+Error: Checks failed!

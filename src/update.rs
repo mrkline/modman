@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use failure::*;
+use anyhow::*;
 use log::*;
 use semver::Version;
 
@@ -16,7 +16,7 @@ Checks if installed mod files have been overwritten by a game update,
 and if they have, updates the backups and reinstalls the mod files.
 "#;
 
-pub fn update_command(args: &[String]) -> Fallible<()> {
+pub fn update_command(args: &[String]) -> Result<()> {
     let mut opts = getopts::Options::new();
     opts.optflag(
         "n",
@@ -45,7 +45,7 @@ pub fn update_command(args: &[String]) -> Fallible<()> {
     Ok(())
 }
 
-fn update_installed_mods(p: &mut Profile, dry_run: bool) -> Fallible<()> {
+fn update_installed_mods(p: &mut Profile, dry_run: bool) -> Result<()> {
     info!("Checking installed mod files...");
 
     let mut updates_made = false;
@@ -120,7 +120,7 @@ fn update_file(
     m: &dyn Mod,
     root_directory: &Path,
     dry_run: bool,
-) -> Fallible<Option<ModFileMetadata>> {
+) -> Result<Option<ModFileMetadata>> {
     let game_path = mod_path_to_game_path(mod_file_path, root_directory);
     let game_hash = hash_file(&game_path)?;
     if game_hash == old_metadata.mod_hash {
@@ -161,7 +161,7 @@ fn update_file(
     // and behavior in sync anyways?
     let mut mod_file_reader = m.read_file(&mod_file_path)?;
     let mut game_file = fs::File::create(&game_path)
-        .with_context(|_| format!("Couldn't overwrite {}", game_path.display()))?;
+        .with_context(|| format!("Couldn't overwrite {}", game_path.display()))?;
 
     let mod_hash = hash_and_write(&mut mod_file_reader, &mut game_file)?;
 
@@ -191,7 +191,7 @@ fn update_file(
 /// Given a mod path, hash and backup the corresponding game file.
 /// Like try_hash_and_backup() from `modman activate`, but doesn't have to deal
 /// with the possibility that the game file isn't there.
-fn backup_file(game_file_path: &Path, mod_file_path: &Path) -> Fallible<()> {
+fn backup_file(game_file_path: &Path, mod_file_path: &Path) -> Result<()> {
     debug!("Backing up {}", game_file_path.display());
 
     // First, copy the file to a temporary location, hashing it as we go.
@@ -209,7 +209,7 @@ fn backup_file(game_file_path: &Path, mod_file_path: &Path) -> Fallible<()> {
         backup_file_dir.push(parent);
     }
     fs::create_dir_all(&backup_file_dir)
-        .with_context(|_| format!("Couldn't create directory {}", backup_file_dir.display()))?;
+        .with_context(|| format!("Couldn't create directory {}", backup_file_dir.display()))?;
 
     let backup_path = backup_file_dir.join(mod_file_path.file_name().unwrap());
     debug_assert!(backup_path == mod_path_to_backup_path(mod_file_path));
@@ -222,7 +222,7 @@ fn backup_file(game_file_path: &Path, mod_file_path: &Path) -> Fallible<()> {
 
     // Move the backup from the temporary location to its final spot
     // in the backup directory.
-    fs::rename(&temp_file_path, &backup_path).with_context(|_| {
+    fs::rename(&temp_file_path, &backup_path).with_context(|| {
         format!(
             "Couldn't rename {} to {}",
             temp_file_path.display(),

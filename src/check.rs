@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use failure::*;
+use anyhow::*;
 use log::*;
 
 use crate::file_utils::*;
@@ -14,7 +14,7 @@ static USAGE: &str = r#"Usage: modman check
 Check for possible problems with installed mods and backed up files.
 "#;
 
-pub fn check_command(args: &[String]) -> Fallible<()> {
+pub fn check_command(args: &[String]) -> Result<()> {
     let opts = getopts::Options::new();
 
     if args.len() == 1 && args[0] == "help" {
@@ -42,7 +42,7 @@ pub fn check_command(args: &[String]) -> Fallible<()> {
     if ok {
         Ok(())
     } else {
-        Err(format_err!("Checks failed!"))
+        bail!("Checks failed!")
     }
 }
 
@@ -84,7 +84,7 @@ fn collect_unknown_files(
 }
 
 /// Checks for unknown files, and returns false if any are found.
-fn find_unknown_files(p: &Profile) -> Fallible<bool> {
+fn find_unknown_files(p: &Profile) -> Result<bool> {
     info!("Checking for unknown files...");
     let backed_up_files = collect_file_paths_in_dir(Path::new(BACKUP_PATH))?;
 
@@ -111,7 +111,7 @@ fn find_unknown_files(p: &Profile) -> Fallible<bool> {
 
 /// Verifies integrity of backup files,
 /// and returns false if any fail their check.
-fn verify_backups(p: &Profile) -> Fallible<bool> {
+fn verify_backups(p: &Profile) -> Result<bool> {
     info!("Verifying backup files...");
     let mut backups_ok = true;
 
@@ -150,7 +150,7 @@ fn verify_backups(p: &Profile) -> Fallible<bool> {
                 }
             })
             .reduce(
-                || -> Fallible<bool> { Ok(true) },
+                || -> Result<bool> { Ok(true) },
                 |left, right| Ok(left? && right?),
             )?;
     }
@@ -160,7 +160,7 @@ fn verify_backups(p: &Profile) -> Fallible<bool> {
 
 /// Verifies integrity of installed mod files,
 /// and returns false if any fail their check.
-fn verify_installed_mod_files(p: &Profile) -> Fallible<bool> {
+fn verify_installed_mod_files(p: &Profile) -> Result<bool> {
     info!("Verifying installed mod files...");
     let mut installed_files_ok = true;
 
@@ -191,7 +191,7 @@ fn verify_installed_mod_files(p: &Profile) -> Fallible<bool> {
                 }
             })
             .reduce(
-                || -> Fallible<bool> { Ok(true) },
+                || -> Result<bool> { Ok(true) },
                 |left, right| Ok(left? && right?),
             )?;
     }

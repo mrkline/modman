@@ -4,7 +4,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc::channel, Mutex};
 
-use failure::*;
+use anyhow::*;
 use log::*;
 use rayon::prelude::*;
 
@@ -25,7 +25,7 @@ which will be treated as the root of the mod files.
 .zip support is planned for a future release.
 "#;
 
-pub fn activate_command(args: &[String]) -> Fallible<()> {
+pub fn activate_command(args: &[String]) -> Result<()> {
     let mut opts = getopts::Options::new();
     opts.optflag(
         "n",
@@ -75,7 +75,7 @@ pub fn activate_command(args: &[String]) -> Fallible<()> {
 
 /// Given a mod's path and a profile, apply a given mod.
 /// If dry_run is set, no writes are made.
-fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
+fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Result<()> {
     let m = open_mod(mod_path)?;
 
     let mod_file_paths = m.paths()?;
@@ -120,7 +120,7 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
 
     mod_file_paths
         .into_par_iter()
-        .try_for_each_with::<_, _, Fallible<()>>(tx, |tx, mod_file_path| {
+        .try_for_each_with::<_, _, Result<()>>(tx, |tx, mod_file_path| {
             let original_hash: Option<FileHash> =
                 try_hash_and_backup(&mod_file_path, &p, journal, dry_run)?;
 
@@ -148,12 +148,12 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
 
                 // Create any needed directory structure.
                 let game_file_dir = game_file_path.parent().unwrap();
-                fs::create_dir_all(&game_file_dir).with_context(|_| {
+                fs::create_dir_all(&game_file_dir).with_context(|| {
                     format!("Couldn't create directory {}", game_file_dir.display())
                 })?;
 
                 let mut game_file = fs::File::create(&game_file_path)
-                    .with_context(|_| format!("Couldn't overwrite {}", game_file_path.display()))?;
+                    .with_context(|| format!("Couldn't overwrite {}", game_file_path.display()))?;
 
                 hash_and_write(&mut mod_file_reader, &mut game_file)
             }?;
@@ -198,7 +198,7 @@ fn check_for_profile_conflicts(
     mod_path: &Path,
     mod_file_paths: &[PathBuf],
     p: &Profile,
-) -> Fallible<()> {
+) -> Result<()> {
     for mod_file_path in mod_file_paths {
         for (active_mod_name, active_mod) in &p.mods {
             if active_mod.files.contains_key(&*mod_file_path) {
@@ -222,7 +222,7 @@ fn try_hash_and_backup(
     p: &Profile,
     journal: &Mutex<Box<dyn Journal>>,
     dry_run: bool,
-) -> Fallible<Option<FileHash>> {
+) -> Result<Option<FileHash>> {
     let game_file_path = mod_path_to_game_path(mod_file_path, &p.root_directory);
 
     // Try to open a file in the game directory at mod_file_path,
@@ -240,10 +240,8 @@ fn try_hash_and_backup(
             }
             // If open() gave a different error, cough that up.
             else {
-                Err(Error::from(open_err.context(format!(
-                    "Couldn't open {}",
-                    game_file_path.display()
-                ))))
+                Err(Error::from(open_err)
+                    .context(format!("Couldn't open {}", game_file_path.display())))
             }
         }
         Ok(game_file) => {
@@ -276,7 +274,7 @@ fn hash_and_backup<R: BufRead>(
     mod_file_path: &Path,
     game_file_path: &Path,
     reader: &mut R,
-) -> Fallible<FileHash> {
+) -> Result<FileHash> {
     debug!("Backing up {}", game_file_path.display());
 
     // First, copy the file to a temporary location, hashing it as we go.
@@ -289,7 +287,7 @@ fn hash_and_backup<R: BufRead>(
         backup_file_dir.push(parent);
     }
     fs::create_dir_all(&backup_file_dir)
-        .with_context(|_| format!("Couldn't create directory {}", backup_file_dir.display()))?;
+        .with_context(|| format!("Couldn't create directory {}", backup_file_dir.display()))?;
 
     let backup_path = backup_file_dir.join(mod_file_path.file_name().unwrap());
     debug_assert!(backup_path == mod_path_to_backup_path(mod_file_path));
@@ -327,7 +325,7 @@ fn hash_and_backup<R: BufRead>(
 
     // Move the backup from the temporary location to its final spot
     // in the backup directory.
-    fs::rename(&temp_file_path, &backup_path).with_context(|_| {
+    fs::rename(&temp_file_path, &backup_path).with_context(|| {
         format!(
             "Couldn't rename {} to {}",
             temp_file_path.display(),
@@ -341,10 +339,7 @@ fn hash_and_backup<R: BufRead>(
 /// Given a path for a temporary file and a buffered reader of the game file it's replacing,
 /// copy the game file to our temp directory,
 /// then return its hash
-fn hash_and_write_temporary<R: BufRead>(
-    temp_file_path: &Path,
-    reader: &mut R,
-) -> Fallible<FileHash> {
+fn hash_and_write_temporary<R: BufRead>(temp_file_path: &Path, reader: &mut R) -> Result<FileHash> {
     trace!(
         "Hashing and copying to temp file {}",
         temp_file_path.display()
@@ -352,7 +347,7 @@ fn hash_and_write_temporary<R: BufRead>(
 
     // Because it's a temp file, we're fine if this truncates an existing file.
     let mut temp_file = fs::File::create(&temp_file_path)
-        .with_context(|_| format!("Couldn't create {}", temp_file_path.display()))?;
+        .with_context(|| format!("Couldn't create {}", temp_file_path.display()))?;
 
     let hash = hash_and_write(reader, &mut temp_file)?;
 
@@ -360,7 +355,7 @@ fn hash_and_write_temporary<R: BufRead>(
     // but do what we can to make sure the data actually made it to disk.
     temp_file
         .sync_data()
-        .with_context(|_| format!("Couldn't sync {}", temp_file_path.display()))?;
+        .with_context(|| format!("Couldn't sync {}", temp_file_path.display()))?;
 
     Ok(hash)
 }

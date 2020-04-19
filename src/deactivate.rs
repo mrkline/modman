@@ -2,7 +2,7 @@ use std::fs;
 use std::io::BufReader;
 use std::path::Path;
 
-use failure::*;
+use anyhow::*;
 use log::*;
 
 use crate::file_utils::*;
@@ -15,7 +15,7 @@ static USAGE: &str = r#"Usage: modman remove/deactivate [options] <MOD>
 Deactivate a mod at the path <MOD>.
 "#;
 
-pub fn deactivate_command(args: &[String]) -> Fallible<()> {
+pub fn deactivate_command(args: &[String]) -> Result<()> {
     let mut opts = getopts::Options::new();
     opts.optflag(
         "n",
@@ -57,7 +57,7 @@ pub fn deactivate_command(args: &[String]) -> Fallible<()> {
     Ok(())
 }
 
-fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
+fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Result<()> {
     // First sanity check: this mod is in the profile
     let removed_mod: ModManifest = p.mods.remove(mod_path).ok_or_else(|| {
         return format_err!("{} hasn't been activated.", mod_path.display());
@@ -104,7 +104,7 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
             Ok(hash_matches)
         })
         .reduce(
-            || -> Fallible<bool> { Ok(true) },
+            || -> Result<bool> { Ok(true) },
             |left, right| Ok(left? && right?),
         )?;
 
@@ -146,7 +146,7 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
                         Err(e)
                     }
                 })
-                .with_context(|_| format!("Couldn't remove {}", game_path.display()))?;
+                .with_context(|| format!("Couldn't remove {}", game_path.display()))?;
             remove_empty_parents(&game_path)
         })?;
 
@@ -162,7 +162,7 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Fallible<()> {
             let backup_path = mod_path_to_backup_path(file);
             debug!("Removing {}", backup_path.display());
             fs::remove_file(&backup_path)
-                .with_context(|_| format!("Couldn't remove {}", backup_path.display()))?;
+                .with_context(|| format!("Couldn't remove {}", backup_path.display()))?;
             remove_empty_parents(&backup_path)
         })?;
 
@@ -173,7 +173,7 @@ fn restore_file_from_backup(
     mod_path: &Path,
     mod_meta: &ModFileMetadata,
     root_directory: &Path,
-) -> Fallible<()> {
+) -> Result<()> {
     assert!(mod_meta.original_hash.is_some());
 
     let backup_path = mod_path_to_backup_path(mod_path);
@@ -187,7 +187,7 @@ fn restore_file_from_backup(
     // We could use fs::copy(), but let's sanity check that we're putting back
     // the bits we got in the first place.
 
-    let mut reader = BufReader::new(fs::File::open(&backup_path).with_context(|_| {
+    let mut reader = BufReader::new(fs::File::open(&backup_path).with_context(|| {
         format!(
             "Couldn't open {} to restore it to {}",
             backup_path.display(),
@@ -196,7 +196,7 @@ fn restore_file_from_backup(
     })?);
     // Because we're restoring contents, this will truncate an existing file.
     let mut game_file = fs::File::create(&game_path)
-        .with_context(|_| format!("Couldn't open {} to overwrite it", game_path.display()))?;
+        .with_context(|| format!("Couldn't open {} to overwrite it", game_path.display()))?;
 
     let hash = hash_and_write(&mut reader, &mut game_file)?;
     trace!(

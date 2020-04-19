@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use failure::*;
+use anyhow::*;
 use log::*;
 
 use crate::journal::*;
@@ -18,7 +18,7 @@ we can use the journal to try to undo the partial installation, restoring the
 game files to their previous state.
 "#;
 
-pub fn repair_command(args: &[String]) -> Fallible<()> {
+pub fn repair_command(args: &[String]) -> Result<()> {
     let mut opts = getopts::Options::new();
     opts.optflag(
         "n",
@@ -59,7 +59,7 @@ pub fn repair_command(args: &[String]) -> Fallible<()> {
         match try_to_undo(path, *action, &p, dry_run) {
             Ok(()) => (),
             Err(e) => {
-                error!("{}", crate::error::pretty_error(&e));
+                error!("{:#}", e);
                 clean_run = false;
             }
         }
@@ -83,7 +83,7 @@ pub fn repair_command(args: &[String]) -> Fallible<()> {
     Ok(())
 }
 
-fn try_to_undo(path: &Path, action: JournalAction, p: &Profile, dry_run: bool) -> Fallible<()> {
+fn try_to_undo(path: &Path, action: JournalAction, p: &Profile, dry_run: bool) -> Result<()> {
     if p.mods
         .values()
         .any(|manifest| manifest.files.keys().any(|file| file == path))
@@ -101,24 +101,24 @@ fn try_to_undo(path: &Path, action: JournalAction, p: &Profile, dry_run: bool) -
     }
 }
 
-fn try_to_remove(path: &Path, p: &Profile, dry_run: bool) -> Fallible<()> {
+fn try_to_remove(path: &Path, p: &Profile, dry_run: bool) -> Result<()> {
     info!("Remove {}", path.display());
     if !dry_run {
         let game_path = mod_path_to_game_path(path, &p.root_directory);
         fs::remove_file(&game_path)
-            .with_context(|_| format!("Couldn't remove {}", game_path.display()))?;
+            .with_context(|| format!("Couldn't remove {}", game_path.display()))?;
     }
 
     Ok(())
 }
 
-fn try_to_restore(path: &Path, p: &Profile, dry_run: bool) -> Fallible<()> {
+fn try_to_restore(path: &Path, p: &Profile, dry_run: bool) -> Result<()> {
     info!("Restore {}", path.display());
     if !dry_run {
         let backup_path = mod_path_to_backup_path(path);
         let game_path = mod_path_to_game_path(path, &p.root_directory);
         // Let copy fail if the backup doesn't exist.
-        fs::copy(&backup_path, &game_path).with_context(|_| {
+        fs::copy(&backup_path, &game_path).with_context(|| {
             format!(
                 "Couldn't copy {} to {}",
                 backup_path.display(),
@@ -127,7 +127,7 @@ fn try_to_restore(path: &Path, p: &Profile, dry_run: bool) -> Fallible<()> {
         })?;
         // If restoration succeeds, let's remove the backup.
         fs::remove_file(&backup_path)
-            .with_context(|_| format!("Couldn't remove {}", backup_path.display()))?;
+            .with_context(|| format!("Couldn't remove {}", backup_path.display()))?;
     }
 
     Ok(())

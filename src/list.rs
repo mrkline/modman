@@ -1,7 +1,6 @@
-use failure::*;
+use anyhow::*;
 use log::*;
 
-use crate::error::*;
 use crate::modification::*;
 use crate::profile::*;
 use crate::usage::*;
@@ -11,7 +10,7 @@ static USAGE: &str = r#"Usage: modman list [options]
 List installed mods and (optionally) their files.
 "#;
 
-pub fn list_command(args: &[String]) -> Fallible<()> {
+pub fn list_command(args: &[String]) -> Result<()> {
     let mut opts = getopts::Options::new();
     opts.optflag("f", "files", "List the files installed by each mod.");
     opts.optflag("r", "readme", "Print each mod's README under its name");
@@ -46,11 +45,7 @@ pub fn list_command(args: &[String]) -> Fallible<()> {
                     }
                     println!("{}", m.readme());
                 }
-                Err(e) => warn!(
-                    "Couldn't open mod {}:\n{}",
-                    mod_name.display(),
-                    pretty_error(&e)
-                ),
+                Err(e) => warn!("Couldn't open mod {}:\n{:#}", mod_name.display(), e),
             }
         }
         if print_files {

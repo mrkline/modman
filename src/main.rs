@@ -1,17 +1,14 @@
 use std::env;
-use std::process::exit;
 
+use anyhow::*;
 use atty::*;
-use failure::*;
 use getopts::{Options, ParsingStyle};
-use log::*;
 
 mod activate;
 mod check;
 mod deactivate;
 mod dir_mod;
 mod encoding;
-mod error;
 mod file_utils;
 mod hash_serde;
 mod init;
@@ -54,7 +51,7 @@ static USAGE: &str = r#"Usage: modman [options] <command> [command options]
   help: Print this information.
 "#;
 
-fn do_it() -> Fallible<()> {
+fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
 
     let mut opts = Options::new();
@@ -93,7 +90,7 @@ fn do_it() -> Fallible<()> {
 
     if let Some(chto) = matches.opt_str("C") {
         env::set_current_dir(&chto)
-            .with_context(|_| format!("Couldn't set working directory to {}", chto))?;
+            .with_context(|| format!("Couldn't set working directory to {}", chto))?;
     }
 
     let mut free_args = matches.free;
@@ -124,11 +121,4 @@ fn do_it() -> Fallible<()> {
             eprint_usage(USAGE, &opts);
         }
     }
-}
-
-fn main() {
-    do_it().unwrap_or_else(|e| {
-        error!("{}", crate::error::pretty_error(&e));
-        exit(1);
-    });
 }

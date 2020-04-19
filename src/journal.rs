@@ -4,7 +4,7 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
-use failure::*;
+use anyhow::*;
 
 use crate::profile::*;
 
@@ -15,19 +15,19 @@ static JOURNAL_NAME: &str = "activate.journal";
 /// records files we're adding or replacing in the game directory.
 /// Removed once we've committed those changes to the profile file.
 pub trait Journal: Send {
-    fn add_file(&mut self, p: &Path) -> Fallible<()> {
+    fn add_file(&mut self, p: &Path) -> Result<()> {
         self.entry("Add", p)
     }
 
-    fn replace_file(&mut self, p: &Path) -> Fallible<()> {
+    fn replace_file(&mut self, p: &Path) -> Result<()> {
         self.entry("Replace", p)
     }
 
     /// Adds a line to the journal
-    fn entry(&mut self, kind: &str, p: &Path) -> Fallible<()>;
+    fn entry(&mut self, kind: &str, p: &Path) -> Result<()>;
 }
 
-pub fn create_journal(dry_run: bool) -> Fallible<Box<dyn Journal>> {
+pub fn create_journal(dry_run: bool) -> Result<Box<dyn Journal>> {
     if dry_run {
         Ok(Box::new(DryRunJournal::new()))
     } else {
@@ -40,7 +40,7 @@ pub fn get_journal_path() -> PathBuf {
     Path::new(TEMPDIR_PATH).join(JOURNAL_NAME).to_owned()
 }
 
-pub fn delete_journal(j: Box<dyn Journal>) -> Fallible<()> {
+pub fn delete_journal(j: Box<dyn Journal>) -> Result<()> {
     drop(j);
     fs::remove_file(get_journal_path()).context("Couldn't delete activation journal")?;
     Ok(())
@@ -54,7 +54,7 @@ pub enum JournalAction {
 
 pub type JournalMap = BTreeMap<PathBuf, JournalAction>;
 
-pub fn read_journal() -> Fallible<JournalMap> {
+pub fn read_journal() -> Result<JournalMap> {
     // Could be Result::or_else except we want to return from the
     // function inside the Err arm.
     let f = match fs::File::open(get_journal_path()) {
@@ -64,9 +64,7 @@ pub fn read_journal() -> Fallible<JournalMap> {
             if open_err.kind() == std::io::ErrorKind::NotFound {
                 return Ok(BTreeMap::new());
             } else {
-                return Err(Error::from(
-                    open_err.context("Couldn't open activation journal"),
-                ));
+                bail!("Couldn't open activation journal");
             }
         }
     };
@@ -80,7 +78,7 @@ pub fn read_journal() -> Fallible<JournalMap> {
         .collect()
 }
 
-fn read_journal_line(line: String) -> Fallible<(PathBuf, JournalAction)> {
+fn read_journal_line(line: String) -> Result<(PathBuf, JournalAction)> {
     let tokens: Vec<&str> = line
         .split(char::is_whitespace)
         .filter(|t| !t.is_empty())
@@ -109,7 +107,7 @@ impl DryRunJournal {
 }
 
 impl Journal for DryRunJournal {
-    fn entry(&mut self, kind: &str, p: &Path) -> Fallible<()> {
+    fn entry(&mut self, kind: &str, p: &Path) -> Result<()> {
         let path_str = p.display();
         eprintln!("{} {}", kind, path_str);
         Ok(())
@@ -121,7 +119,7 @@ struct ActivationJournal {
 }
 
 impl ActivationJournal {
-    fn new() -> Fallible<Self> {
+    fn new() -> Result<Self> {
         let fd = fs::OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -135,7 +133,7 @@ impl ActivationJournal {
                         get_journal_path().display()
                     )
                 } else {
-                    Error::from(e.context("Couldn't create activation journal"))
+                    Error::from(e).context("Couldn't create activation journal")
                 }
             })?;
         Ok(ActivationJournal { fd })
@@ -144,7 +142,7 @@ impl ActivationJournal {
 
 impl Journal for ActivationJournal {
     /// Adds a line to the journal
-    fn entry(&mut self, kind: &str, p: &Path) -> Fallible<()> {
+    fn entry(&mut self, kind: &str, p: &Path) -> Result<()> {
         // In all other places, we've used display(),
         // since they're just for user-facing messages.
         // Here, demand that paths be UTF-8,

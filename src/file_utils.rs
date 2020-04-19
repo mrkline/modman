@@ -2,22 +2,22 @@ use std::fs;
 use std::io::prelude::*;
 use std::path::*;
 
-use failure::*;
+use anyhow::*;
 use log::*;
 use sha2::*;
 
 use crate::profile::*;
 
-pub fn hash_file(path: &Path) -> Fallible<FileHash> {
+pub fn hash_file(path: &Path) -> Result<FileHash> {
     trace!("Hashing {}", path.display());
-    let f = fs::File::open(&path).with_context(|_| format!("Couldn't open {}", path.display()))?;
+    let f = fs::File::open(&path).with_context(|| format!("Couldn't open {}", path.display()))?;
     hash_contents(&mut std::io::BufReader::new(f))
 }
 
 /// Hash data from the given buffered reader.
 /// Mostly used for dry runs where we want to compute hashes but skip backups.
 /// (See hash_and_backup() for the real deal.)
-pub fn hash_contents<R: BufRead>(reader: &mut R) -> Fallible<FileHash> {
+pub fn hash_contents<R: BufRead>(reader: &mut R) -> Result<FileHash> {
     let mut hasher = Sha224::new();
     loop {
         let slice_length = {
@@ -34,7 +34,7 @@ pub fn hash_contents<R: BufRead>(reader: &mut R) -> Fallible<FileHash> {
     Ok(FileHash::new(hasher.result()))
 }
 
-pub fn hash_and_write<R: BufRead, W: Write>(from: &mut R, to: &mut W) -> Fallible<FileHash> {
+pub fn hash_and_write<R: BufRead, W: Write>(from: &mut R, to: &mut W) -> Result<FileHash> {
     let mut hasher = Sha224::new();
 
     loop {
@@ -54,15 +54,15 @@ pub fn hash_and_write<R: BufRead, W: Write>(from: &mut R, to: &mut W) -> Fallibl
 }
 
 /// Provides a vector of file paths in base_dir, relative to base_dir.
-pub fn collect_file_paths_in_dir(base_dir: &Path) -> Fallible<Vec<PathBuf>> {
+pub fn collect_file_paths_in_dir(base_dir: &Path) -> Result<Vec<PathBuf>> {
     let mut ret = Vec::new();
     dir_walker(base_dir, base_dir, &mut ret)?;
     Ok(ret)
 }
 
-fn dir_walker(base_dir: &Path, dir: &Path, file_list: &mut Vec<PathBuf>) -> Fallible<()> {
-    let dir_iter = fs::read_dir(dir)
-        .with_context(|_| format!("Could not read directory {}", dir.display()))?;
+fn dir_walker(base_dir: &Path, dir: &Path, file_list: &mut Vec<PathBuf>) -> Result<()> {
+    let dir_iter =
+        fs::read_dir(dir).with_context(|| format!("Could not read directory {}", dir.display()))?;
     for entry in dir_iter {
         let entry = entry?;
         let ft = entry.file_type()?;
@@ -81,7 +81,7 @@ fn dir_walker(base_dir: &Path, dir: &Path, file_list: &mut Vec<PathBuf>) -> Fall
     Ok(())
 }
 
-pub fn remove_empty_parents(mut p: &Path) -> Fallible<()> {
+pub fn remove_empty_parents(mut p: &Path) -> Result<()> {
     let backup_path = Path::new(crate::profile::BACKUP_PATH);
 
     while let Some(parent) = p.parent() {
@@ -101,7 +101,7 @@ pub fn remove_empty_parents(mut p: &Path) -> Fallible<()> {
                     Err(e)
                 }
             })
-            .with_context(|_| format!("Couldn't remove empty directory {}", parent.display()))?;
+            .with_context(|| format!("Couldn't remove empty directory {}", parent.display()))?;
         p = parent;
     }
     Ok(())

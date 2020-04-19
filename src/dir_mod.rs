@@ -3,7 +3,7 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::*;
 
-use failure::*;
+use anyhow::*;
 use semver::Version;
 
 use crate::file_utils::collect_file_paths_in_dir;
@@ -16,9 +16,9 @@ pub struct DirectoryMod {
 }
 
 impl DirectoryMod {
-    pub fn new(path: &Path) -> Fallible<Self> {
+    pub fn new(path: &Path) -> Result<Self> {
         let dir_iter = fs::read_dir(path)
-            .with_context(|_| format!("Could not read directory {}", path.display()))?;
+            .with_context(|| format!("Could not read directory {}", path.display()))?;
 
         let mut version_info: Option<Version> = None;
 
@@ -69,13 +69,13 @@ impl DirectoryMod {
         }
 
         if version_info.is_none() {
-            return Err(format_err!("Couldn't find VERSION.txt"));
+            bail!("Couldn't find VERSION.txt");
         }
         if readme.is_none() {
-            return Err(format_err!("Couldn't find README.txt"));
+            bail!("Couldn't find README.txt");
         }
         if base_dir.is_none() {
-            return Err(format_err!("Couldn't find a base directory"));
+            bail!("Couldn't find a base directory");
         }
 
         Ok(DirectoryMod {
@@ -87,14 +87,14 @@ impl DirectoryMod {
 }
 
 impl Mod for DirectoryMod {
-    fn paths(&self) -> Fallible<Vec<PathBuf>> {
+    fn paths(&self) -> Result<Vec<PathBuf>> {
         collect_file_paths_in_dir(&self.base_dir)
     }
 
-    fn read_file(&self, p: &Path) -> Fallible<Box<dyn BufRead>> {
+    fn read_file(&self, p: &Path) -> Result<Box<dyn BufRead>> {
         let whole_path = self.base_dir.join(p);
         let f = fs::File::open(&whole_path)
-            .with_context(|_| format!("Couldn't open mod file ({})", whole_path.display()))?;
+            .with_context(|| format!("Couldn't open mod file ({})", whole_path.display()))?;
         Ok(Box::new(BufReader::new(f)))
     }
 

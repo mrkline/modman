@@ -4,7 +4,7 @@ use std::fs;
 use std::io::prelude::*;
 use std::path::*;
 
-use failure::*;
+use anyhow::*;
 use log::*;
 use semver::Version;
 use serde_derive::{Deserialize, Serialize};
@@ -75,7 +75,7 @@ pub struct ProfileFileData {
     pub meta: Meta,
 }
 
-pub fn create_new_profile_file(p: &Profile) -> Fallible<()> {
+pub fn create_new_profile_file(p: &Profile) -> Result<()> {
     let mut f = fs::OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -84,7 +84,7 @@ pub fn create_new_profile_file(p: &Profile) -> Fallible<()> {
             if e.kind() == std::io::ErrorKind::AlreadyExists {
                 format_err!("A profile already exists.")
             } else {
-                Error::from(e.context(format!("Couldn't create profile file ({})", PROFILE_PATH)))
+                Error::from(e).context(format!("Couldn't create profile file ({})", PROFILE_PATH))
             }
         })?;
     serde_json::to_writer_pretty(&f, &p)?;
@@ -92,29 +92,29 @@ pub fn create_new_profile_file(p: &Profile) -> Fallible<()> {
     Ok(())
 }
 
-pub fn load_and_check_profile() -> Fallible<Profile> {
+pub fn load_and_check_profile() -> Result<Profile> {
     info!("Loading profile...");
     let f = fs::File::open(PROFILE_PATH)
-        .with_context(|_| format!("Couldn't open profile file ({})", PROFILE_PATH))?;
+        .with_context(|| format!("Couldn't open profile file ({})", PROFILE_PATH))?;
 
     let p: Profile = serde_json::from_reader(f).context("Couldn't parse profile file")?;
     sanity_check_profile(&p)?;
     Ok(p)
 }
 
-fn sanity_check_profile(profile: &Profile) -> Fallible<()> {
+fn sanity_check_profile(profile: &Profile) -> Result<()> {
     if !profile.root_directory.exists() {
-        return Err(failure::format_err!(
+        bail!(
             "The root directory {} doesn't exist!\n\
              Has it moved since you ran `modman init`?",
             profile.root_directory.display()
-        ));
+        );
     }
 
     Ok(())
 }
 
-pub fn update_profile_file(p: &Profile) -> Fallible<()> {
+pub fn update_profile_file(p: &Profile) -> Result<()> {
     debug!("Updating profile file...");
     // Let's write an update profile file in a few steps to minimize the chance
     // of corruption:
@@ -135,12 +135,12 @@ pub fn update_profile_file(p: &Profile) -> Fallible<()> {
     // 2. Sync that temporary (for what it's worth)
     temp_file
         .sync_data()
-        .with_context(|_| format!("Couldn't sync {}", temp_filename.display()))?;
+        .with_context(|| format!("Couldn't sync {}", temp_filename.display()))?;
     drop(temp_file);
 
     // 3. Rename it to the real deal.
     trace!("Renaming updated profile to {}", PROFILE_PATH);
-    fs::rename(&temp_filename, PROFILE_PATH).with_context(|_| {
+    fs::rename(&temp_filename, PROFILE_PATH).with_context(|| {
         format!(
             "Couldn't rename {} to {}.",
             temp_filename.display(),
@@ -151,7 +151,7 @@ pub fn update_profile_file(p: &Profile) -> Fallible<()> {
     Ok(())
 }
 
-pub fn print_profile(p: &Profile) -> Fallible<()> {
+pub fn print_profile(p: &Profile) -> Result<()> {
     serde_json::ser::to_writer_pretty(std::io::stdout().lock(), &p)
         .context("Couldn't serialize profile to JSON")?;
     println!();

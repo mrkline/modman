@@ -3,7 +3,7 @@ use std::fs;
 use std::io::prelude::*;
 use std::path::PathBuf;
 
-use failure::*;
+use anyhow::*;
 use getopts::Options;
 use log::*;
 
@@ -15,7 +15,7 @@ static USAGE: &str = r#"Usage: modman init [options]
 Create a new mod configuration file in this directory (or the one given with -C).
 The file will be named"#;
 
-pub fn init_command(args: &[String]) -> Fallible<()> {
+pub fn init_command(args: &[String]) -> Result<()> {
     let mut opts = Options::new();
     opts.reqopt(
         "",
@@ -96,7 +96,7 @@ Feel free to delete them."#,
             )
             .as_bytes(),
         )
-        .with_context(|_| format!("Couldn't create backup README ({})", BACKUP_README))?;
+        .with_context(|| format!("Couldn't create backup README ({})", BACKUP_README))?;
 
     info!("Backup directory ({}/) created", STORAGE_PATH);
 
