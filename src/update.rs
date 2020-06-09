@@ -181,6 +181,12 @@ fn backup_file(game_file_path: &Path, mod_file_path: &Path) -> Result<()> {
         game_file_path.display(),
         temp_file_path.display()
     );
+    // Create temporary subdirectories as needed
+    if let Some(parent) = temp_file_path.parent() {
+        fs::create_dir_all(&parent)
+            .with_context(|| format!("Couldn't create temp directory {}", parent.display()))?;
+    }
+
     fs::copy(game_file_path, &temp_file_path).with_context(|| {
         format!(
             "Couldn't copy {} to {}",

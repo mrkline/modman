@@ -328,6 +328,12 @@ fn hash_and_write_temporary<R: Read>(temp_file_path: &Path, reader: &mut R) -> R
         temp_file_path.display()
     );
 
+    // Create temporary subdirectories as needed
+    if let Some(parent) = temp_file_path.parent() {
+        fs::create_dir_all(&parent)
+            .with_context(|| format!("Couldn't create temp directory {}", parent.display()))?;
+    }
+
     // Because it's a temp file, we're fine if this truncates an existing file.
     let mut temp_file = fs::File::create(&temp_file_path)
         .with_context(|| format!("Couldn't create {}", temp_file_path.display()))?;

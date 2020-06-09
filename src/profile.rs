@@ -176,9 +176,5 @@ pub fn mod_path_to_backup_path(mod_path: &Path) -> PathBuf {
 /// its file name appended to our temp directory,
 /// with a `.part` suffix.
 pub fn mod_path_to_temp_path(mod_path: &Path) -> PathBuf {
-    // We're unwrapping that path has a final path component (i.e., a file name.)
-    // Very strange things are happening if it doesn't...
-    let mut temp_filename: std::ffi::OsString = mod_path.file_name().unwrap().to_owned();
-    temp_filename.push(".part");
-    Path::new(TEMPDIR_PATH).join(temp_filename)
+    Path::new(TEMPDIR_PATH).join(mod_path)
 }
