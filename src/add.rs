@@ -1,6 +1,6 @@
 use std::collections::*;
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc::channel, Mutex};
 
@@ -253,7 +253,7 @@ fn try_hash_and_backup(
 /// `modman activate` and `modman update` need to do different things.
 /// (The former makes a journal entry, and skips to the next file if we don't
 /// need to backup. The latter expects the file to exist.)
-fn hash_and_backup<R: BufRead>(
+fn hash_and_backup<R: Read>(
     mod_file_path: &Path,
     game_file_path: &Path,
     reader: &mut R,
@@ -322,7 +322,7 @@ fn hash_and_backup<R: BufRead>(
 /// Given a path for a temporary file and a buffered reader of the game file it's replacing,
 /// copy the game file to our temp directory,
 /// then return its hash
-fn hash_and_write_temporary<R: BufRead>(temp_file_path: &Path, reader: &mut R) -> Result<FileHash> {
+fn hash_and_write_temporary<R: Read>(temp_file_path: &Path, reader: &mut R) -> Result<FileHash> {
     trace!(
         "Hashing and copying to temp file {}",
         temp_file_path.display()

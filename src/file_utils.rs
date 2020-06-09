@@ -1,4 +1,5 @@
 use std::fs;
+use std::io;
 use std::io::prelude::*;
 use std::path::*;
 
@@ -11,46 +12,51 @@ use crate::profile::*;
 pub fn hash_file(path: &Path) -> Result<FileHash> {
     trace!("Hashing {}", path.display());
     let f = fs::File::open(&path).with_context(|| format!("Couldn't open {}", path.display()))?;
-    hash_contents(&mut std::io::BufReader::new(f))
+    hash_contents(&mut io::BufReader::new(f))
+}
+
+struct HashingReader<R> {
+    inner: R,
+    hasher: Sha224,
+}
+
+impl<R: Read> HashingReader<R> {
+    fn new(inner: R) -> Self {
+        Self {
+            inner,
+            hasher: Sha224::new(),
+        }
+    }
+
+    fn result(self) -> FileHash {
+        FileHash::new(self.hasher.result())
+    }
+}
+
+impl<R: Read> Read for HashingReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let read_result = self.inner.read(buf);
+        if let Ok(count) = read_result {
+            self.hasher.input(&buf[..count]);
+        }
+        read_result
+    }
 }
 
 /// Hash data from the given buffered reader.
 /// Mostly used for dry runs where we want to compute hashes but skip backups.
 /// (See hash_and_backup() for the real deal.)
-pub fn hash_contents<R: BufRead>(reader: &mut R) -> Result<FileHash> {
-    let mut hasher = Sha224::new();
-    loop {
-        let slice_length = {
-            let slice = reader.fill_buf()?;
-            if slice.is_empty() {
-                break;
-            }
-            hasher.input(slice);
-            slice.len()
-        };
-        reader.consume(slice_length);
-    }
-
-    Ok(FileHash::new(hasher.result()))
+pub fn hash_contents<R: Read>(reader: &mut R) -> Result<FileHash> {
+    let mut hasher = HashingReader::new(reader);
+    let mut sink = io::sink();
+    io::copy(&mut hasher, &mut sink)?;
+    Ok(hasher.result())
 }
 
-pub fn hash_and_write<R: BufRead, W: Write>(from: &mut R, to: &mut W) -> Result<FileHash> {
-    let mut hasher = Sha224::new();
-
-    loop {
-        let slice_length = {
-            let slice = from.fill_buf()?;
-            if slice.is_empty() {
-                break;
-            }
-            to.write_all(slice)?;
-            hasher.input(slice);
-            slice.len()
-        };
-        from.consume(slice_length);
-    }
-
-    Ok(FileHash::new(hasher.result()))
+pub fn hash_and_write<R: Read, W: Write>(from: &mut R, to: &mut W) -> Result<FileHash> {
+    let mut hasher = HashingReader::new(from);
+    io::copy(&mut hasher, to)?;
+    Ok(hasher.result())
 }
 
 /// Provides a vector of file paths in base_dir, relative to base_dir.
@@ -94,9 +100,9 @@ pub fn remove_empty_parents(mut p: &Path) -> Result<()> {
             return match e.kind() {
                 // If we're doing removes in parallel, there's a chance
                 // another thread got it already
-                std::io::ErrorKind::NotFound => Ok(()),
+                io::ErrorKind::NotFound => Ok(()),
                 // If the directory isn't empty...
-                std::io::ErrorKind::Other => {
+                io::ErrorKind::Other => {
                     let raw_error = e.raw_os_error().expect("No errno");
                     // POSIX can return ENOTEMPTY (39).
                     // Windows seems to return ERROR_DIR_NOT_EMPTY (145)
@@ -109,7 +115,7 @@ pub fn remove_empty_parents(mut p: &Path) -> Result<()> {
                 // Windows seems to return access denied (error 5)
                 // sometimes as well. Maybe there's an I/O lock while
                 // another thread is trying to remove it?
-                std::io::ErrorKind::PermissionDenied => {
+                io::ErrorKind::PermissionDenied => {
                     if cfg!(windows) {
                         Ok(())
                     } else {

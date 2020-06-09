@@ -12,7 +12,7 @@ pub trait Mod {
     /// stripped away
     fn paths(&self) -> Result<Vec<PathBuf>>;
 
-    fn read_file(&self, p: &Path) -> Result<Box<dyn BufRead>>;
+    fn read_file(&self, p: &Path) -> Result<Box<dyn Read>>;
 
     fn version(&self) -> &Version;
 
