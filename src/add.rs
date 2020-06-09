@@ -7,66 +7,49 @@ use std::sync::{mpsc::channel, Mutex};
 use anyhow::*;
 use log::*;
 use rayon::prelude::*;
+use structopt::*;
 
 use crate::file_utils::*;
 use crate::journal::*;
 use crate::modification::*;
 use crate::profile::*;
-use crate::usage::*;
 
-static USAGE: &str = r#"Usage: modman add/activate [options] <MOD>
+/// Installs a mod.
+///
+/// Each <MOD> is assumed to be a ZIP archive or a directory containing
+/// a VERSION.txt file, a README.txt file, and a single sub-directory,
+/// which will be treated as the root of the mod files.
+/// (Any JSGME or OVGME-compatible archive should match this format.)
+///
+/// This command installs all mod files, and if they conflict with ones
+/// in the root directory, backs those up.
+#[derive(Debug, StructOpt)]
+#[structopt(verbatim_doc_comment)]
+pub struct Args {
+    #[structopt(short = "n", long)]
+    dry_run: bool,
 
-Activate a mod at the path <MOD>.
-Each mod is assumed to be a directory containing a VERSION.txt file,
-a README.txt file, and a single directory,
-which will be treated as the root of the mod files.
-(Any unzipped JSGME or OVGME-compatible archive should match this format.)
+    #[structopt(name = "MOD", required(true))]
+    mod_names: Vec<PathBuf>,
+}
 
-.zip support is planned for a future release.
-"#;
-
-pub fn activate_command(args: &[String]) -> Result<()> {
-    let mut opts = getopts::Options::new();
-    opts.optflag(
-        "n",
-        "dry-run",
-        "Instead of actually activating the mod, print the actions `modman activate` would take.",
-    );
-
-    if args.len() == 1 && args[0] == "help" {
-        print_usage(USAGE, &opts);
-    }
-
-    let matches = match opts.parse(args) {
-        Ok(m) => m,
-        Err(f) => {
-            eprintln!("{}", f.to_string());
-            eprint_usage(USAGE, &opts);
-        }
-    };
-
-    if matches.free.is_empty() {
-        eprint_usage(USAGE, &opts);
-    }
-
-    let dry_run = matches.opt_present("n");
-
+pub fn run(args: Args) -> Result<()> {
     let mut p = load_and_check_profile()?;
 
-    for mod_name in matches.free {
-        info!("Activating {}...", mod_name);
+    for mod_name in args.mod_names {
+        info!("Activating {}...", mod_name.display());
 
         let mod_path = Path::new(&mod_name);
 
         // First sanity check: we haven't already added this mod.
         if p.mods.contains_key(mod_path) {
-            bail!("{} has already been activated!", mod_name);
+            bail!("{} has already been added!", mod_name.display());
         }
 
-        apply_mod(mod_path, &mut p, dry_run)?;
+        apply_mod(mod_path, &mut p, args.dry_run)?;
     }
 
-    if dry_run {
+    if args.dry_run {
         print_profile(&p)?;
     }
 

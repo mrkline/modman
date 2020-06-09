@@ -53,7 +53,7 @@ echo "Testing repair"
 
 #rootsums > expected/starting.root
 
-# Set things up as if `activate mod1` was interrupted right before
+# Set things up as if `add mod1` was interrupted right before
 # updating the profile.
 mv rootdir/A.txt modman-backup/originals/A.txt
 mv rootdir/B.txt modman-backup/originals/B.txt
@@ -69,7 +69,7 @@ diff -u <(rootsums) expected/starting.root
 diff -u <(backupsums) expected/empty.backup
 
 echo "Activating a ZIP mod (mod1)"
-$run activate mod1
+$run add mod1
 #cp modman.profile expected/mod1.profile
 #backupsums > expected/mod1.backup
 #rootsums > expected/mod1.root
@@ -78,7 +78,7 @@ diff -u expected/mod1.backup <(backupsums)
 diff -u expected/mod1.root <(rootsums)
 
 echo "Activating a directory mod (mod2)"
-$run activate mod2
+$run add mod2
 #cp modman.profile expected/mod2.profile
 #backupsums > expected/mod2.backup
 #rootsums > expected/mod2.root
@@ -87,11 +87,11 @@ diff -u expected/mod2.backup <(backupsums)
 diff -u expected/mod2.root <(rootsums)
 
 echo "Testing activation failure when adding the same mod twice"
-out=$(! $run activate mod1 2>&1)
-echo "$out" | grep -q "mod1 has already been activated!"
+out=$(! $run add mod1 2>&1)
+echo "$out" | grep -q "mod1 has already been added!"
 
 echo "Testing activation conflict detection"
-out=$(! $run activate mod-conflicting 2>&1)
+out=$(! $run add mod-conflicting 2>&1)
 echo "$out" | grep -q "A.txt from mod-conflicting would overwrite the same file from mod1"
 
 echo "Testing list"
@@ -136,8 +136,8 @@ rootsums > expected/updated.root
 diff -u expected/updated.backup <(backupsums)
 diff -u expected/updated.root <(rootsums)
 
-echo "Testing deactivate"
-$run deactivate mod1 mod2
+echo "Testing remove"
+$run remove mod1 mod2
 diff -u modman.profile expected/empty.profile
 diff -u expected/empty.backup <(backupsums)
 # We expect the "updates" applied above to persist through deactivate.

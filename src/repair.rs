@@ -3,43 +3,25 @@ use std::path::Path;
 
 use anyhow::*;
 use log::*;
+use structopt::*;
 
 use crate::journal::*;
 use crate::profile::*;
-use crate::usage::*;
 
-static USAGE: &str = r#"Usage: modman repair
+/// Tries to return things to how they were if `activate` was interrupted
+///
+/// While installing a mod, `modman activate` keeps a journal of files it's adding
+/// and replacing in the game directory. If it's interrupted before it can finish,
+/// we can use the journal to try to undo the partial installation, restoring the
+/// game files to their previous state.
+#[derive(Debug, StructOpt)]
+#[structopt(verbatim_doc_comment)]
+pub struct Args {
+    #[structopt(short = "n", long)]
+    dry_run: bool,
+}
 
-Tries to return things to how they were if `modman activate` was interrupted.
-
-While installing a mod, `modman activate` keeps a journal of files it's adding
-and replacing in the game directory. If it's interrupted before it can finish,
-we can use the journal to try to undo the partial installation, restoring the
-game files to their previous state.
-"#;
-
-pub fn repair_command(args: &[String]) -> Result<()> {
-    let mut opts = getopts::Options::new();
-    opts.optflag(
-        "n",
-        "dry-run",
-        "See what actions `modman repair` would take, but don't change any files.",
-    );
-
-    if args.len() == 1 && args[0] == "help" {
-        print_usage(USAGE, &opts);
-    }
-
-    let matches = match opts.parse(args) {
-        Ok(m) => m,
-        Err(f) => {
-            eprintln!("{}", f.to_string());
-            eprint_usage(USAGE, &opts);
-        }
-    };
-
-    let dry_run = matches.opt_present("n");
-
+pub fn run(args: Args) -> Result<()> {
     let p = load_and_check_profile()?;
 
     let journal_map = read_journal()?;
@@ -56,7 +38,7 @@ pub fn repair_command(args: &[String]) -> Result<()> {
 
     let mut clean_run = true;
     for (path, action) in &journal_map {
-        match try_to_undo(path, *action, &p, dry_run) {
+        match try_to_undo(path, *action, &p, args.dry_run) {
             Ok(()) => (),
             Err(e) => {
                 error!("{:#}", e);
@@ -66,7 +48,7 @@ pub fn repair_command(args: &[String]) -> Result<()> {
     }
 
     if clean_run {
-        if !dry_run {
+        if !args.dry_run {
             info!(
                 "Repair complete, removing journal file. \
                  Game files should be as they were before the interrupted `modman activate`."

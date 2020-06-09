@@ -1,40 +1,28 @@
 use anyhow::*;
 use log::*;
+use structopt::*;
 
 use crate::modification::*;
 use crate::profile::*;
-use crate::usage::*;
 
-static USAGE: &str = r#"Usage: modman list [options]
+/// List installed mods.
+#[derive(Debug, StructOpt)]
+pub struct Args {
+    /// List the files installed by each mod.
+    #[structopt(short, long)]
+    files: bool,
 
-List installed mods and (optionally) their files.
-"#;
+    /// Print each mod's README
+    #[structopt(short, long)]
+    readme: bool,
+}
 
-pub fn list_command(args: &[String]) -> Result<()> {
-    let mut opts = getopts::Options::new();
-    opts.optflag("f", "files", "List the files installed by each mod.");
-    opts.optflag("r", "readme", "Print each mod's README under its name");
-
-    if args.len() == 1 && args[0] == "help" {
-        print_usage(USAGE, &opts);
-    }
-
-    let matches = match opts.parse(args) {
-        Ok(m) => m,
-        Err(f) => {
-            eprintln!("{}", f.to_string());
-            eprint_usage(USAGE, &opts);
-        }
-    };
-
-    let print_files = matches.opt_present("f");
-    let print_readme = matches.opt_present("r");
-
+pub fn run(args: Args) -> Result<()> {
     let p = load_and_check_profile()?;
 
     for (mod_name, mod_manifest) in p.mods {
         println!("{} (v{})", mod_name.display(), mod_manifest.version);
-        if print_readme {
+        if args.readme {
             // We don't store READMEs in the manifest, so go get the mod itself.
             match open_mod(&mod_name) {
                 Ok(m) => {
@@ -48,7 +36,7 @@ pub fn list_command(args: &[String]) -> Result<()> {
                 Err(e) => warn!("Couldn't open mod {}:\n{:#}", mod_name.display(), e),
             }
         }
-        if print_files {
+        if args.files {
             for f in mod_manifest.files.keys() {
                 println!("\t{}", f.display());
             }

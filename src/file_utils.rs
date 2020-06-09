@@ -112,8 +112,7 @@ pub fn remove_empty_parents(mut p: &Path) -> Result<()> {
                 std::io::ErrorKind::PermissionDenied => {
                     if cfg!(windows) {
                         Ok(())
-                    }
-                    else {
+                    } else {
                         Err(Error::from(e))
                     }
                 }

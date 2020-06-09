@@ -1,6 +1,6 @@
 [package]
 name = "modman"
-version = "0.2.2"
+version = "0.3.0"
 authors = ["Matt Kline <matt@bitbashing.io>"]
 edition = "2018"
 
@@ -12,7 +12,7 @@ anyhow= "1.0"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
-getopts = "0.2"
+structopt = "0.3.9"
 sha2 = "0.8"
 semver = "0.9"
 log = "0.4"

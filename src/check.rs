@@ -6,30 +6,9 @@ use log::*;
 use crate::file_utils::*;
 use crate::journal::*;
 use crate::profile::*;
-use crate::usage::*;
 use rayon::prelude::*;
 
-static USAGE: &str = r#"Usage: modman check
-
-Check for possible problems with installed mods and backed up files.
-"#;
-
-pub fn check_command(args: &[String]) -> Result<()> {
-    let opts = getopts::Options::new();
-
-    if args.len() == 1 && args[0] == "help" {
-        print_usage(USAGE, &opts);
-    }
-
-    // TODO: Allow user to specify a subset of things to check?
-    let _matches = match opts.parse(args) {
-        Ok(m) => m,
-        Err(f) => {
-            eprintln!("{}", f.to_string());
-            eprint_usage(USAGE, &opts);
-        }
-    };
-
+pub fn run() -> Result<()> {
     let p = load_and_check_profile()?;
 
     let mut ok = true;

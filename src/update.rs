@@ -4,44 +4,24 @@ use std::path::{Path, PathBuf};
 use anyhow::*;
 use log::*;
 use semver::Version;
+use structopt::*;
 
 use crate::file_utils::*;
 use crate::modification::*;
 use crate::profile::*;
-use crate::usage::*;
 
-static USAGE: &str = r#"Usage: modman update
+/// Checks if installed mod files have been overwritten by an update.
+///
+/// If they have, updates the backups and reinstalls the mod files.
+#[derive(Debug, StructOpt)]
+pub struct Args {
+    #[structopt(short = "n", long)]
+    dry_run: bool,
+}
 
-Checks if installed mod files have been overwritten by a game update,
-and if they have, updates the backups and reinstalls the mod files.
-"#;
-
-pub fn update_command(args: &[String]) -> Result<()> {
-    let mut opts = getopts::Options::new();
-    opts.optflag(
-        "n",
-        "dry-run",
-        "Instead of actually activating the mod, print the actions `modman update` would take.",
-    );
-
-    if args.len() == 1 && args[0] == "help" {
-        print_usage(USAGE, &opts);
-    }
-
-    // TODO: Allow user to specify a subset of things to check?
-    let matches = match opts.parse(args) {
-        Ok(m) => m,
-        Err(f) => {
-            eprintln!("{}", f.to_string());
-            eprint_usage(USAGE, &opts);
-        }
-    };
-
-    let dry_run = matches.opt_present("n");
-
+pub fn run(args: Args) -> Result<()> {
     let mut p = load_and_check_profile()?;
-    update_installed_mods(&mut p, dry_run)?;
-
+    update_installed_mods(&mut p, args.dry_run)?;
     Ok(())
 }
 

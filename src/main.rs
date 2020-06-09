@@ -1,12 +1,11 @@
-use std::env;
+use std::path::PathBuf;
 
 use anyhow::*;
 use atty::*;
-use getopts::{Options, ParsingStyle};
+use structopt::*;
 
-mod activate;
+mod add;
 mod check;
-mod deactivate;
 mod dir_mod;
 mod encoding;
 mod file_utils;
@@ -16,71 +15,44 @@ mod journal;
 mod list;
 mod modification;
 mod profile;
+mod remove;
 mod repair;
 mod update;
-mod usage;
 mod version_serde;
 
-use crate::activate::*;
-use crate::check::*;
-use crate::deactivate::*;
-use crate::init::*;
-use crate::list::*;
-use crate::repair::*;
-use crate::update::*;
-use crate::usage::*;
+/// An OVGME-like mod manager with exciting 21st century tech - like threads!
+#[derive(Debug, StructOpt)]
+struct Options {
+    /// Print progress to stderr. Pass multiple times for more verbosity (info, debug, trace)
+    #[structopt(short, long, parse(from_occurrences))]
+    verbosity: usize,
 
-static USAGE: &str = r#"Usage: modman [options] <command> [command options]
+    /// Do everything with <DIR> as the working directory.
+    #[structopt(short = "C", long, name = "DIR")]
+    directory: Option<PathBuf>,
 
-<command> is one of:
+    #[structopt(subcommand)]
+    subcommand: Subcommand,
+}
 
-  init: Create a new mod configuration in this directory.
-
-  add/activate: Activate a mod package, backing up files it overwrite.
-
-  remove/deactivate: Deactivate a mod package, restoring files it overwrote.
-
-  list: List currently-activated mod packages,
-        or the files they've overwritten.
-
-  update: Following an update, discover which modded files were updated.
-          Backup those updates, then overwrite them with the mod files again.
-
-  check: Verifies that active mod files and backups are still good.
-
-  help: Print this information.
-"#;
+#[derive(Debug, StructOpt)]
+enum Subcommand {
+    Init(init::Args),
+    Add(add::Args),
+    Remove(remove::Args),
+    List(list::Args),
+    /// Check for possible problems with installed mods and backed up files.
+    Check,
+    Update(update::Args),
+    Repair(repair::Args),
+}
 
 fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
+    let args = Options::from_args();
 
-    let mut opts = Options::new();
-    opts.optopt(
-        "C",
-        "directory",
-        "run modman as if it were started in <DIR> instead of the current directory.",
-        "<DIR>",
-    );
-    opts.optflagmulti(
-        "v",
-        "verbose",
-        "print progress to stderr. Pass multiple times for more info.",
-    );
-    // We don't want to eat the subcommands' args.
-    opts.parsing_style(ParsingStyle::StopAtFirstFree);
-
-    let matches = match opts.parse(&args[1..]) {
-        Ok(m) => m,
-        Err(f) => {
-            eprintln!("{}", f.to_string());
-            eprint_usage(USAGE, &opts);
-        }
-    };
-
-    let verbosity = matches.opt_count("v");
     let mut errlog = stderrlog::new();
     // The +1 is because we want -v to give info, not warn.
-    errlog.verbosity(verbosity + 1);
+    errlog.verbosity(args.verbosity + 1);
     if atty::is(Stream::Stdout) {
         errlog.color(stderrlog::ColorChoice::Auto);
     } else {
@@ -88,37 +60,18 @@ fn main() -> Result<()> {
     }
     errlog.init()?;
 
-    if let Some(chto) = matches.opt_str("C") {
-        env::set_current_dir(&chto)
-            .with_context(|| format!("Couldn't set working directory to {}", chto))?;
+    if let Some(chto) = args.directory {
+        std::env::set_current_dir(&chto)
+            .with_context(|| format!("Couldn't set working directory to {}", chto.display()))?;
     }
 
-    let mut free_args = matches.free;
-
-    if free_args.is_empty() {
-        eprintln!("Please give a command.");
-        eprint_usage(USAGE, &opts);
-    }
-
-    // If the user passed multiple args (see above),
-    // and the first one is "help", swap it with the second so that
-    // "help init" produces the same help text as "init help".
-    if free_args.len() > 1 && free_args[0] == "help" {
-        free_args.swap(0, 1);
-    }
-
-    match free_args[0].as_ref() {
-        "add" | "activate" => activate_command(&free_args[1..]),
-        "remove" | "deactivate" => deactivate_command(&free_args[1..]),
-        "check" => check_command(&free_args[1..]),
-        "help" => print_usage(USAGE, &opts),
-        "init" => init_command(&free_args[1..]),
-        "list" => list_command(&free_args[1..]),
-        "update" => update_command(&free_args[1..]),
-        "repair" => repair_command(&free_args[1..]),
-        wut => {
-            eprintln!("Unknown command: {}", wut);
-            eprint_usage(USAGE, &opts);
-        }
+    match args.subcommand {
+        Subcommand::Init(i) => init::run(i),
+        Subcommand::Add(a) => add::run(a),
+        Subcommand::Remove(r) => remove::run(r),
+        Subcommand::List(l) => list::run(l),
+        Subcommand::Check => check::run(),
+        Subcommand::Update(u) => update::run(u),
+        Subcommand::Repair(r) => repair::run(r),
     }
 }

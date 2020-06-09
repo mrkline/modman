@@ -4,47 +4,23 @@ use std::io::prelude::*;
 use std::path::PathBuf;
 
 use anyhow::*;
-use getopts::Options;
 use log::*;
+use structopt::*;
 
 use crate::profile::*;
-use crate::usage::*;
 
-static USAGE: &str = r#"Usage: modman init [options]
+/// Create a new mod directory here (or wherever -C gave)
+#[derive(Debug, StructOpt)]
+pub struct Args {
+    /// The root directory where mod files will be installed
+    #[structopt(long)]
+    root: PathBuf,
+}
 
-Create a new mod configuration file in this directory (or the one given with -C).
-The file will be named"#;
-
-pub fn init_command(args: &[String]) -> Result<()> {
-    let mut opts = Options::new();
-    opts.reqopt(
-        "",
-        "root",
-        "The root directory (usually a game's directory) where mods should be installed.",
-        "<DIR>",
-    );
-
-    if args.len() == 1 && args[0] == "help" {
-        print_usage(USAGE, &opts);
-    }
-
-    let matches = match opts.parse(args) {
-        Ok(m) => m,
-        Err(f) => {
-            eprintln!("{}", f.to_string());
-            eprint_usage(USAGE, &opts);
-        }
-    };
-
-    let free_args = &matches.free;
-
-    if !free_args.is_empty() {
-        eprint_usage(USAGE, &opts);
-    }
-
+pub fn run(args: Args) -> Result<()> {
     debug!("Checking if the given --root exists...");
 
-    let root_path = PathBuf::from(&matches.opt_str("root").unwrap());
+    let root_path = args.root;
     if !root_path.is_dir() {
         bail!("{} is not an existing directory!", root_path.display());
     }

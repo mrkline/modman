@@ -1,56 +1,40 @@
 use std::fs;
 use std::io::BufReader;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::*;
 use log::*;
+use structopt::*;
 
 use crate::file_utils::*;
 use crate::profile::*;
-use crate::usage::*;
 use rayon::prelude::*;
 
-static USAGE: &str = r#"Usage: modman remove/deactivate [options] <MOD>
+/// Uninstalls a mod
+///
+/// Mod files from <MOD> are removed from the root directory
+/// and any files they replaced are restored from backups.
+#[derive(Debug, StructOpt)]
+#[structopt(verbatim_doc_comment)]
+pub struct Args {
+    #[structopt(short = "n", long)]
+    dry_run: bool,
 
-Deactivate a mod at the path <MOD>.
-"#;
+    #[structopt(name = "MOD", required(true))]
+    mod_names: Vec<PathBuf>,
+}
 
-pub fn deactivate_command(args: &[String]) -> Result<()> {
-    let mut opts = getopts::Options::new();
-    opts.optflag(
-        "n",
-        "dry-run",
-        "Instead of actually activating the mod, print the actions `modman activate` would take.",
-    );
-
-    if args.len() == 1 && args[0] == "help" {
-        print_usage(USAGE, &opts);
-    }
-
-    let matches = match opts.parse(args) {
-        Ok(m) => m,
-        Err(f) => {
-            eprintln!("{}", f.to_string());
-            eprint_usage(USAGE, &opts);
-        }
-    };
-
-    if matches.free.is_empty() {
-        eprint_usage(USAGE, &opts);
-    }
-
-    let dry_run = matches.opt_present("n");
-
+pub fn run(args: Args) -> Result<()> {
     let mut p = load_and_check_profile()?;
 
-    for mod_name in matches.free {
-        info!("Deactivating {}...", mod_name);
+    for mod_name in args.mod_names {
+        info!("Deactivating {}...", mod_name.display());
 
         let mod_path = Path::new(&mod_name);
-        remove_mod(&mod_path, &mut p, dry_run)?;
+        remove_mod(&mod_path, &mut p, args.dry_run)?;
     }
 
-    if dry_run {
+    if args.dry_run {
         print_profile(&p)?;
     }
 
