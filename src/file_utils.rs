@@ -47,10 +47,7 @@ impl<R: Read> Read for HashingReader<R> {
 /// Mostly used for dry runs where we want to compute hashes but skip backups.
 /// (See hash_and_backup() for the real deal.)
 pub fn hash_contents<R: Read>(reader: &mut R) -> Result<FileHash> {
-    let mut hasher = HashingReader::new(reader);
-    let mut sink = io::sink();
-    io::copy(&mut hasher, &mut sink)?;
-    Ok(hasher.result())
+    hash_and_write(reader, &mut io::sink())
 }
 
 pub fn hash_and_write<R: Read, W: Write>(from: &mut R, to: &mut W) -> Result<FileHash> {
