@@ -1,6 +1,5 @@
 use std::fs;
 use std::io::prelude::*;
-use std::io::BufReader;
 use std::path::*;
 
 use anyhow::*;
@@ -95,7 +94,7 @@ impl Mod for DirectoryMod {
         let whole_path = self.base_dir.join(p);
         let f = fs::File::open(&whole_path)
             .with_context(|| format!("Couldn't open mod file ({})", whole_path.display()))?;
-        Ok(Box::new(BufReader::new(f)))
+        Ok(Box::new(f))
     }
 
     fn version(&self) -> &Version {

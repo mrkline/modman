@@ -1,5 +1,4 @@
 use std::fs;
-use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use anyhow::*;
@@ -171,13 +170,13 @@ fn restore_file_from_backup(
     // We could use fs::copy(), but let's sanity check that we're putting back
     // the bits we got in the first place.
 
-    let mut reader = BufReader::new(fs::File::open(&backup_path).with_context(|| {
+    let mut reader = fs::File::open(&backup_path).with_context(|| {
         format!(
             "Couldn't open {} to restore it to {}",
             backup_path.display(),
             game_path.display()
         )
-    })?);
+    })?;
     // Because we're restoring contents, this will truncate an existing file.
     let mut game_file = fs::File::create(&game_path)
         .with_context(|| format!("Couldn't open {} to overwrite it", game_path.display()))?;

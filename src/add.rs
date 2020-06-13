@@ -1,6 +1,6 @@
 use std::collections::*;
 use std::fs;
-use std::io::{BufReader, Read};
+use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc::channel, Mutex};
 
@@ -227,14 +227,13 @@ fn try_hash_and_backup(
                     .context(format!("Couldn't open {}", game_file_path.display())))
             }
         }
-        Ok(game_file) => {
+        Ok(mut game_file) => {
             journal.lock().unwrap().replace_file(mod_file_path)?;
-            let mut br = BufReader::new(game_file);
 
             let hash = if !dry_run {
-                hash_and_backup(mod_file_path, &game_file_path, &mut br)
+                hash_and_backup(mod_file_path, &game_file_path, &mut game_file)
             } else {
-                hash_contents(&mut br)
+                hash_contents(&mut game_file)
             }?;
             trace!(
                 "Game file {} hashed to\n{:x}",

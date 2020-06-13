@@ -11,8 +11,9 @@ use crate::profile::*;
 
 pub fn hash_file(path: &Path) -> Result<FileHash> {
     trace!("Hashing {}", path.display());
-    let f = fs::File::open(&path).with_context(|| format!("Couldn't open {}", path.display()))?;
-    hash_contents(&mut io::BufReader::new(f))
+    let mut f =
+        fs::File::open(&path).with_context(|| format!("Couldn't open {}", path.display()))?;
+    hash_contents(&mut f)
 }
 
 struct HashingReader<R> {
