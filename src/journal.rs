@@ -37,7 +37,7 @@ pub fn create_journal(dry_run: bool) -> Result<Box<dyn Journal>> {
 }
 
 pub fn get_journal_path() -> PathBuf {
-    Path::new(TEMPDIR_PATH).join(JOURNAL_NAME).to_owned()
+    Path::new(TEMPDIR_PATH).join(JOURNAL_NAME)
 }
 
 pub fn delete_journal(j: Box<dyn Journal>) -> Result<()> {

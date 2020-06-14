@@ -1,5 +1,4 @@
 use semver::Version;
-use serde;
 use std::result::Result;
 
 pub fn serialize_version<S>(version: &Version, serializer: S) -> Result<S::Ok, S::Error>
