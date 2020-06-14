@@ -140,7 +140,7 @@ echo "Testing remove"
 $run remove mod1 mod2
 diff -u modman.profile expected/empty.profile
 diff -u expected/empty.backup <(backupsums)
-# We expect the "updates" applied above to persist through deactivate.
+# We expect the "updates" applied above to persist through removal.
 diff -u <(echo "I am the latest and greatest version of B.") rootdir/B.txt
 diff -u <(echo "I am a new game file replacing the mod file, C.") rootdir/C.txt
 # Then reset them to how they started

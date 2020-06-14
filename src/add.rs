@@ -1,6 +1,6 @@
 use std::collections::*;
 use std::fs;
-use std::io::prelude::*;
+use std::io::{self, prelude::*};
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc::channel, Mutex};
 
@@ -104,6 +104,7 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Result<()> {
     mod_file_paths
         .into_par_iter()
         .try_for_each_with::<_, _, Result<()>>(tx, |tx, mod_file_path| {
+            // 1-4: Back up the original, if there was one.
             let original_hash: Option<FileHash> =
                 try_hash_and_backup(&mod_file_path, &p, journal, dry_run)?;
 
@@ -117,12 +118,17 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Result<()> {
             // If this isn't a dry run, overwrite the game file.
             let full_mod_path = mod_path.join(mod_file_path.as_path());
             let mut mod_file_reader = m.read_file(&mod_file_path)?;
-            let mod_hash = if dry_run {
-                // We don't need to write the mod file anywhere, so just hash it.
-                hash_contents(&mut mod_file_reader)
-            } else {
-                let game_file_path = mod_path_to_game_path(&mod_file_path, &p.root_directory);
 
+            let game_file_path = mod_path_to_game_path(&mod_file_path, &p.root_directory);
+
+            let mut game_file: Box<dyn Write> = if dry_run {
+                debug!(
+                    "Would install {} to {}",
+                    full_mod_path.display(),
+                    game_file_path.display()
+                );
+                Box::new(io::sink())
+            } else {
                 debug!(
                     "Installing {} to {}",
                     full_mod_path.display(),
@@ -134,12 +140,11 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Result<()> {
                 fs::create_dir_all(&game_file_dir).with_context(|| {
                     format!("Couldn't create directory {}", game_file_dir.display())
                 })?;
+                Box::new(fs::File::create(&game_file_path)
+                    .with_context(|| format!("Couldn't overwrite {}", game_file_path.display()))?)
+            };
 
-                let mut game_file = fs::File::create(&game_file_path)
-                    .with_context(|| format!("Couldn't overwrite {}", game_file_path.display()))?;
-
-                hash_and_write(&mut mod_file_reader, &mut game_file)
-            }?;
+            let mod_hash = hash_and_write(&mut mod_file_reader, &mut game_file)?;
 
             trace!(
                 "Mod file {} hashed to\n{:x}",
@@ -231,7 +236,8 @@ fn try_hash_and_backup(
             journal.lock().unwrap().replace_file(mod_file_path)?;
 
             let hash = if !dry_run {
-                hash_and_backup(mod_file_path, &game_file_path, &mut game_file)
+                debug!("Backing up {}", game_file_path.display());
+                hash_and_backup(mod_file_path, &mut game_file)
             } else {
                 hash_contents(&mut game_file)
             }?;
@@ -247,17 +253,10 @@ fn try_hash_and_backup(
 
 /// Given a mod file's path and a reader of the game file it's replacing,
 /// backup said game file and return its hash.
-/// The game file path is provided to print a uniform debug message,
-/// but we take a reader instead of opening the file in here because
-/// `modman activate` and `modman update` need to do different things.
-/// (The former makes a journal entry, and skips to the next file if we don't
-/// need to backup. The latter expects the file to exist.)
 fn hash_and_backup<R: Read>(
     mod_file_path: &Path,
-    game_file_path: &Path,
     reader: &mut R,
 ) -> Result<FileHash> {
-    debug!("Backing up {}", game_file_path.display());
 
     // First, copy the file to a temporary location, hashing it as we go.
     let temp_file_path = mod_path_to_temp_path(mod_file_path);
@@ -294,7 +293,7 @@ fn hash_and_backup<R: Read>(
         // TODO: Offer corrective action once `modman rescue`
         // or whatever we want to call it exists.
         bail!(
-            "{} already exists (was `modman activate` previously interrupted?)",
+            "{} already exists (was `modman add` previously interrupted?)",
             backup_path.display()
         );
     }

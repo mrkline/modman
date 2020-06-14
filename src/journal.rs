@@ -128,7 +128,7 @@ impl ActivationJournal {
                 if e.kind() == std::io::ErrorKind::AlreadyExists {
                     format_err!(
                         "An activation journal already exists at {}.\n\
-                         If a previous run of `modman activate` was interrupted,\n\
+                         If a previous run of `modman add` was interrupted,\n\
                          run `modman repair`.",
                         get_journal_path().display()
                     )

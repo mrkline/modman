@@ -27,7 +27,7 @@ pub fn run(args: Args) -> Result<()> {
     let mut p = load_and_check_profile()?;
 
     for mod_name in args.mod_names {
-        info!("Deactivating {}...", mod_name.display());
+        info!("Removing {}...", mod_name.display());
 
         let mod_path = Path::new(&mod_name);
         remove_mod(&mod_path, &mut p, args.dry_run)?;
@@ -43,7 +43,7 @@ pub fn run(args: Args) -> Result<()> {
 fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Result<()> {
     // First sanity check: this mod is in the profile
     let removed_mod: ModManifest = p.mods.remove(mod_path).ok_or_else(|| {
-        return format_err!("{} hasn't been activated.", mod_path.display());
+        return format_err!("{} hasn't been added.", mod_path.display());
     })?;
 
     // Everything after this is filesystem work.
@@ -118,8 +118,7 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Result<()> {
             info!("Removing {}", file.display());
             let game_path = mod_path_to_game_path(file, &p.root_directory);
             // Keep moving if it's already gone,
-            // which gets us to step 3 if a previous run of deactivate
-            // was interrupted.
+            // which gets us to step 3 if a previous run of `remove` was interrupted.
             fs::remove_file(&game_path)
                 .or_else(|e| {
                     if e.kind() == std::io::ErrorKind::NotFound {

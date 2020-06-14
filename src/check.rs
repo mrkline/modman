@@ -26,14 +26,14 @@ pub fn run() -> Result<()> {
 }
 
 fn check_for_journal() -> bool {
-    info!("Checking if `modman activate` was interrupted...");
+    info!("Checking if `modman add` was interrupted...");
     if crate::journal::get_journal_path().exists() {
         warn!(
             "A journal file was found in the backup directory.\n\
-             This usually happens when `modman activate` is interrupted \
+             This usually happens when `modman add` is interrupted \
              before it can update the profile file.\n\
              Run `modman repair` to restore files to the game directory \
-             and run `modman activate` again."
+             and run `modman add` again."
         );
         false
     } else {

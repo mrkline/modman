@@ -133,11 +133,11 @@ fn update_file(
 
     backup_file(&game_path, mod_file_path)?;
 
-    // This is very simimlar to what `modman activate` is doing
+    // This is very simimlar to what `modman add` is doing
     // to initially install mods, but it has a few differences
     // (we don't have to worry about a dry run hashing the mod file again,
     // we don't have to create directories, etc.)
-    // But should we factor them into a common function to their traces
+    // But should we factor them into a common function to get their traces
     // and behavior in sync anyways?
     let mut mod_file_reader = m.read_file(&mod_file_path)?;
     let mut game_file = fs::File::create(&game_path)
@@ -169,8 +169,11 @@ fn update_file(
 }
 
 /// Given a mod path, hash and backup the corresponding game file.
-/// Like try_hash_and_backup() from `modman activate`, but doesn't have to deal
-/// with the possibility that the game file isn't there.
+///
+/// Like `hash_and_backup()` from `modman add`, but with some simplifications
+/// since we _know_ `game_file_path` should be there.
+///
+/// TODO: The duplication between this and `hadh_and_backup()` makes me sad.
 fn backup_file(game_file_path: &Path, mod_file_path: &Path) -> Result<()> {
     debug!("Backing up {}", game_file_path.display());
 

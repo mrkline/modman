@@ -1,6 +1,6 @@
 WARN - A journal file was found in the backup directory.
-This usually happens when `modman activate` is interrupted before it can update the profile file.
-Run `modman repair` to restore files to the game directory and run `modman activate` again.
+This usually happens when `modman add` is interrupted before it can update the profile file.
+Run `modman repair` to restore files to the game directory and run `modman add` again.
 WARN - The following files were found in the backup directory but aren't known by modman:
 	wut.txt
 WARN - The backup of A.txt has changed!

@@ -10,7 +10,7 @@ use crate::profile::*;
 
 /// Tries to return things to how they were if `activate` was interrupted
 ///
-/// While installing a mod, `modman activate` keeps a journal of files it's adding
+/// While installing a mod, `modman add` keeps a journal of files it's adding
 /// and replacing in the game directory. If it's interrupted before it can finish,
 /// we can use the journal to try to undo the partial installation, restoring the
 /// game files to their previous state.
@@ -33,7 +33,7 @@ pub fn run(args: Args) -> Result<()> {
     // We'll make most messages INFO level here, since
     // someone is having a bad time if they're running this.
     // We'd like to be verbose to help them figure out what the situation is.
-    info!("Found a journal from an interrupted `modman activate`.");
+    info!("Found a journal from an interrupted `modman add`.");
     info!("Restoring what files we can find...");
 
     let mut clean_run = true;
@@ -51,13 +51,13 @@ pub fn run(args: Args) -> Result<()> {
         if !args.dry_run {
             info!(
                 "Repair complete, removing journal file. \
-                 Game files should be as they were before the interrupted `modman activate`."
+                 Game files should be as they were before the interrupted `modman add`."
             );
             fs::remove_file(get_journal_path()).context("Couldn't delete activation journal")?;
         }
     } else {
         bail!(
-            "Errors encountered while undoing the interrupted `modman activate`. \
+            "Errors encountered while undoing the interrupted `modman add`. \
              Leaving the journal file around; good luck and godspeed."
         );
     }
