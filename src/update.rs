@@ -65,6 +65,11 @@ fn update_installed_mods(p: &mut Profile, dry_run: bool) -> Result<()> {
         // from this loop. What do?
     }
 
+    if !dry_run {
+        remove_empty_tree(Path::new(TEMPDIR_PATH), RemoveRoot(false))
+            .context("Couldn't clean up temp directory")?;
+    }
+
     if updates_made {
         if !dry_run {
             update_profile_file(&p)?;

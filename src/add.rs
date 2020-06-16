@@ -49,7 +49,10 @@ pub fn run(args: Args) -> Result<()> {
         apply_mod(mod_path, &mut p, args.dry_run)?;
     }
 
-    if args.dry_run {
+    if !args.dry_run {
+        remove_empty_tree(Path::new(TEMPDIR_PATH), RemoveRoot(false))
+            .context("Couldn't clean up temp directory")?;
+    } else {
         print_profile(&p)?;
     }
 

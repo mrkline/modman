@@ -86,49 +86,74 @@ fn dir_walker(base_dir: &Path, dir: &Path, file_list: &mut Vec<PathBuf>) -> Resu
     Ok(())
 }
 
+pub fn remove_dir_if_empty(dir: &Path) -> Result<()> {
+    let removal = fs::remove_dir(&dir);
+    if let Err(e) = removal {
+        match e.kind() {
+            // If we're doing removes in parallel, there's a chance
+            // another thread got it already
+            io::ErrorKind::NotFound => Ok(()),
+            // If the directory isn't empty...
+            io::ErrorKind::Other => {
+                let raw_error = e.raw_os_error().expect("No errno");
+                // POSIX can return ENOTEMPTY (39).
+                // Windows seems to return ERROR_DIR_NOT_EMPTY (145)
+                if (cfg!(unix) && raw_error == 39) || (cfg!(windows) && raw_error == 145) {
+                    Ok(())
+                } else {
+                    Err(Error::from(e))
+                }
+            }
+            // Windows seems to return access denied (error 5)
+            // sometimes as well. Maybe there's an I/O lock while
+            // another thread is trying to remove it?
+            io::ErrorKind::PermissionDenied => {
+                if cfg!(windows) {
+                    Ok(())
+                } else {
+                    Err(Error::from(e))
+                }
+            }
+            _ => Err(Error::from(e)),
+        }
+        .context(format!("Couldn't remove empty directory {}", dir.display()))
+    } else {
+        Ok(())
+    }
+}
+
 pub fn remove_empty_parents(mut p: &Path, up_to: &Path) -> Result<()> {
     while let Some(parent) = p.parent() {
         // Avoid removing the root directory entirely on a clean sweep.
         if *parent == *up_to {
             return Ok(());
         }
-        let removal = fs::remove_dir(&parent);
-        if let Err(e) = removal {
-            return match e.kind() {
-                // If we're doing removes in parallel, there's a chance
-                // another thread got it already
-                io::ErrorKind::NotFound => Ok(()),
-                // If the directory isn't empty...
-                io::ErrorKind::Other => {
-                    let raw_error = e.raw_os_error().expect("No errno");
-                    // POSIX can return ENOTEMPTY (39).
-                    // Windows seems to return ERROR_DIR_NOT_EMPTY (145)
-                    if (cfg!(unix) && raw_error == 39) || (cfg!(windows) && raw_error == 145) {
-                        Ok(())
-                    } else {
-                        Err(Error::from(e))
-                    }
-                }
-                // Windows seems to return access denied (error 5)
-                // sometimes as well. Maybe there's an I/O lock while
-                // another thread is trying to remove it?
-                io::ErrorKind::PermissionDenied => {
-                    if cfg!(windows) {
-                        Ok(())
-                    } else {
-                        Err(Error::from(e))
-                    }
-                }
-                _ => Err(Error::from(e)),
-            }
-            .context(format!(
-                "Couldn't remove empty directory {}",
-                parent.display()
-            ));
-        } else {
-            debug!("Removed empty directory {}", parent.display());
-            p = parent;
-        }
+        remove_dir_if_empty(&parent)?;
+        debug!("Removed empty directory {}", parent.display());
+        p = parent;
     }
     unreachable!("remove_empty_parents() got to a filesystem root");
+}
+
+pub struct RemoveRoot(pub bool);
+
+/// Remove a tree of empty directories
+pub fn remove_empty_tree(dir: &Path, remove_root: RemoveRoot) -> Result<()> {
+    let walker =
+        fs::read_dir(dir).with_context(|| format!("Couldn't read directory {}", dir.display()))?;
+    for entry in walker {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() {
+            bail!(
+                "Found file {} when we expected empty directories",
+                entry.path().display()
+            );
+        }
+        remove_empty_tree(&entry.path(), RemoveRoot(true))?;
+    }
+    if remove_root.0 {
+        fs::remove_dir(dir)
+            .with_context(|| format!("Couldn't remove directory {}", dir.display()))?;
+    }
+    Ok(())
 }
