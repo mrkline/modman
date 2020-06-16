@@ -129,7 +129,7 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Result<()> {
                     }
                 })
                 .with_context(|| format!("Couldn't remove {}", game_path.display()))?;
-            remove_empty_parents(&game_path)
+            remove_empty_parents(&game_path, &p.root_directory)
         })?;
 
     // Step 4:
@@ -145,7 +145,7 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Result<()> {
             debug!("Removing {}", backup_path.display());
             fs::remove_file(&backup_path)
                 .with_context(|| format!("Couldn't remove {}", backup_path.display()))?;
-            remove_empty_parents(&backup_path)
+            remove_empty_parents(&backup_path, &Path::new(BACKUP_PATH))
         })?;
 
     Ok(())

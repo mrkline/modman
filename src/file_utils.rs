@@ -1,6 +1,7 @@
+//! File and directory manipulation utilities
+
 use std::fs;
-use std::io;
-use std::io::prelude::*;
+use std::io::{self, prelude::*};
 use std::path::*;
 
 use anyhow::*;
@@ -85,12 +86,10 @@ fn dir_walker(base_dir: &Path, dir: &Path, file_list: &mut Vec<PathBuf>) -> Resu
     Ok(())
 }
 
-pub fn remove_empty_parents(mut p: &Path) -> Result<()> {
-    let backup_path = Path::new(crate::profile::BACKUP_PATH);
-
+pub fn remove_empty_parents(mut p: &Path, up_to: &Path) -> Result<()> {
     while let Some(parent) = p.parent() {
-        // Kludge: Avoid removing BACKUP_PATH entirely on a clean sweep.
-        if *parent == *backup_path {
+        // Avoid removing the root directory entirely on a clean sweep.
+        if *parent == *up_to {
             return Ok(());
         }
         let removal = fs::remove_dir(&parent);
