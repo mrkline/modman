@@ -121,28 +121,30 @@ fn apply_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Result<()> {
 
             let game_file_path = mod_path_to_game_path(&mod_file_path, &p.root_directory);
 
-            let mut game_file: Box<dyn Write> = if dry_run {
-                debug!(
-                    "Would install {} to {}",
-                    full_mod_path.display(),
-                    game_file_path.display()
-                );
-                Box::new(io::sink())
-            } else {
-                debug!(
-                    "Installing {} to {}",
-                    full_mod_path.display(),
-                    game_file_path.display()
-                );
+            let mut game_file: Box<dyn Write> =
+                if dry_run {
+                    debug!(
+                        "Would install {} to {}",
+                        full_mod_path.display(),
+                        game_file_path.display()
+                    );
+                    Box::new(io::sink())
+                } else {
+                    debug!(
+                        "Installing {} to {}",
+                        full_mod_path.display(),
+                        game_file_path.display()
+                    );
 
-                // Create any needed directory structure.
-                let game_file_dir = game_file_path.parent().unwrap();
-                fs::create_dir_all(&game_file_dir).with_context(|| {
-                    format!("Couldn't create directory {}", game_file_dir.display())
-                })?;
-                Box::new(fs::File::create(&game_file_path)
-                    .with_context(|| format!("Couldn't overwrite {}", game_file_path.display()))?)
-            };
+                    // Create any needed directory structure.
+                    let game_file_dir = game_file_path.parent().unwrap();
+                    fs::create_dir_all(&game_file_dir).with_context(|| {
+                        format!("Couldn't create directory {}", game_file_dir.display())
+                    })?;
+                    Box::new(fs::File::create(&game_file_path).with_context(|| {
+                        format!("Couldn't overwrite {}", game_file_path.display())
+                    })?)
+                };
 
             let mod_hash = hash_and_write(&mut mod_file_reader, &mut game_file)?;
 
@@ -253,11 +255,7 @@ fn try_hash_and_backup(
 
 /// Given a mod file's path and a reader of the game file it's replacing,
 /// backup said game file and return its hash.
-fn hash_and_backup<R: Read>(
-    mod_file_path: &Path,
-    reader: &mut R,
-) -> Result<FileHash> {
-
+fn hash_and_backup<R: Read>(mod_file_path: &Path, reader: &mut R) -> Result<FileHash> {
     // First, copy the file to a temporary location, hashing it as we go.
     let temp_file_path = mod_path_to_temp_path(mod_file_path);
     let temp_hash = hash_and_write_temporary(&temp_file_path, reader)?;
