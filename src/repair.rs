@@ -8,7 +8,7 @@ use structopt::*;
 use crate::journal::*;
 use crate::profile::*;
 
-/// Tries to return things to how they were if `activate` was interrupted
+/// Tries to return things to how they were if `add` was interrupted
 ///
 /// While installing a mod, `modman add` keeps a journal of files it's adding
 /// and replacing in the game directory. If it's interrupted before it can finish,

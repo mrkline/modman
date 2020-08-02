@@ -64,9 +64,6 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Result<()> {
     // (TODO: Is applying mods in one pass worth a journal and rescue command?)
     // If we run into issues, tell the user what we've done so far and bail.
 
-    // We could split files that need backups and ones that don't
-    // using Iterator::partition(), but it seems simpler to iterate twice
-    // instead of allocating storage for partitioned references.
     info!(
         "Checking that all mod files installed by {} are unmodified...",
         mod_path.display()
@@ -96,6 +93,11 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Result<()> {
     }
     info!("All mod files from {} are intact!", mod_path.display());
 
+    // We could split files that need backups and ones that don't
+    // using Iterator::partition() for steps 2 and 3,
+    // but it seems simpler to iterate twice instead of allocating storage
+    // for partitioned references.
+
     // Step 2:
     removed_mod
         .files
@@ -104,9 +106,6 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Result<()> {
         .try_for_each(|(file, meta)| {
             info!("Restoring {}", file.display());
             restore_file_from_backup(file, meta, &p.root_directory)
-            // Wait until step 3 to start removing the backups
-            // so that we don't mess with backups until
-            // the game directory is as it started.
         })?;
 
     // Step 3:
@@ -117,8 +116,8 @@ fn remove_mod(mod_path: &Path, p: &mut Profile, dry_run: bool) -> Result<()> {
         .try_for_each(|(file, _)| {
             info!("Removing {}", file.display());
             let game_path = mod_path_to_game_path(file, &p.root_directory);
-            // Keep moving if it's already gone,
-            // which gets us to step 3 if a previous run of `remove` was interrupted.
+            // Keep moving if it's already gone. This gets us to subsequent steps
+            // if a previous run of `remove` was interrupted.
             fs::remove_file(&game_path)
                 .or_else(|e| {
                     if e.kind() == std::io::ErrorKind::NotFound {
