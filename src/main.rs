@@ -19,6 +19,7 @@ mod remove;
 mod repair;
 mod update;
 mod version_serde;
+mod zip_mod;
 
 /// An OVGME-like mod manager with exciting 21st century tech - like threads!
 #[derive(Debug, StructOpt)]
