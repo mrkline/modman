@@ -14,6 +14,11 @@ use crate::profile::*;
 /// and replacing in the game directory. If it's interrupted before it can finish,
 /// we can use the journal to try to undo the partial installation, restoring the
 /// game files to their previous state.
+///
+/// There's no similar repair functionality if `modman update` is interrupted
+/// since its job is to replace outdated backups with new, unknown contents from
+/// the game directory. If the backups are out of date, restoring them to the
+/// game directory would do more harm than good, no?
 #[derive(Debug, StructOpt)]
 #[structopt(verbatim_doc_comment)]
 pub struct Args {
