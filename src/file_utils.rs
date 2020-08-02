@@ -31,7 +31,7 @@ impl<R: Read> HashingReader<R> {
     }
 
     fn result(self) -> FileHash {
-        FileHash::new(self.hasher.result())
+        FileHash::new(self.hasher.finalize())
     }
 }
 
@@ -39,7 +39,7 @@ impl<R: Read> Read for HashingReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let read_result = self.inner.read(buf);
         if let Ok(count) = read_result {
-            self.hasher.input(&buf[..count]);
+            self.hasher.update(&buf[..count]);
         }
         read_result
     }
