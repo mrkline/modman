@@ -12,12 +12,12 @@ quietrun='cargo run -q --'
 
 rootsums()
 {
-    find rootdir -type f | sort | tr '\n' '\0' | xargs -0 sha224sum
+    find rootdir -type f | LC_ALL=C sort | tr '\n' '\0' | xargs -0 sha224sum
 }
 
 backupsums()
 {
-   find modman-backup -type f | sort | tr '\n' '\0' | xargs -0 sha224sum
+   find modman-backup -type f | LC_ALL=C sort | tr '\n' '\0' | xargs -0 sha224sum
 }
 
 echo "Building..."

@@ -1,5 +1,7 @@
 # modman: A hashing mod manager that needs a better name
 
+![CI status](https://github.com/mrkline/modman/workflows/CI/badge.svg)
+
 Modman is a spiritual successor to tools like
 [OVGME](https://wiki.hoggitworld.com/view/OVGME)
 or
