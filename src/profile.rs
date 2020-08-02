@@ -2,6 +2,7 @@ use std::collections::*;
 use std::default::Default;
 use std::fs;
 use std::io::prelude::*;
+use std::io::{BufReader, BufWriter};
 use std::path::*;
 
 use anyhow::*;
@@ -97,7 +98,8 @@ pub fn load_and_check_profile() -> Result<Profile> {
     let f = fs::File::open(PROFILE_PATH)
         .with_context(|| format!("Couldn't open profile file ({})", PROFILE_PATH))?;
 
-    let p: Profile = serde_json::from_reader(f).context("Couldn't parse profile file")?;
+    let p: Profile =
+        serde_json::from_reader(BufReader::new(f)).context("Couldn't parse profile file")?;
     sanity_check_profile(&p)?;
     Ok(p)
 }
@@ -128,16 +130,17 @@ pub fn update_profile_file(p: &Profile) -> Result<()> {
         "Writing updated profile to temp file {}",
         temp_filename.display()
     );
-    let mut temp_file = fs::File::create(&temp_filename)
+    let temp_file = fs::File::create(&temp_filename)
         .with_context(|| format!("Couldn't create temp file {}", temp_filename.display()))?;
-    serde_json::to_writer_pretty(&temp_file, p)?;
+    let mut temp_file = BufWriter::new(temp_file);
+    serde_json::to_writer_pretty(&mut temp_file, p)?;
     temp_file.write_all(b"\n")?;
 
     // 2. Sync that temporary (for what it's worth)
     temp_file
+        .into_inner()?
         .sync_data()
         .with_context(|| format!("Couldn't sync {}", temp_filename.display()))?;
-    drop(temp_file);
 
     // 3. Rename it to the real deal.
     trace!("Renaming updated profile to {}", PROFILE_PATH);
