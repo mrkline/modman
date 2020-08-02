@@ -2,11 +2,11 @@ use std::path::{Path, PathBuf};
 
 use anyhow::*;
 use log::*;
+use rayon::prelude::*;
 
 use crate::file_utils::*;
 use crate::journal::*;
 use crate::profile::*;
-use rayon::prelude::*;
 
 pub fn run() -> Result<()> {
     let p = load_and_check_profile()?;
