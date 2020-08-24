@@ -25,10 +25,10 @@ pub fn open_mod(p: &Path) -> Result<Box<dyn Mod + Sync>> {
     let stat = fs::metadata(p).with_context(|| format!("Couldn't find {}", p.display()))?;
 
     if stat.is_file() {
-        let z = ZipMod::new(p)
-            .with_context(|| format!("trouble reading mod file {}", p.display()))?;
+        let z =
+            ZipMod::new(p).with_context(|| format!("trouble reading mod file {}", p.display()))?;
         todo!();
-        // Ok(Box::new(z))
+    // Ok(Box::new(z))
     } else if stat.is_dir() {
         let d = DirectoryMod::new(p)
             .with_context(|| format!("Trouble reading mod directory {}", p.display()))?;

@@ -1,48 +1,48 @@
 use std::fs::File;
+use std::io::Read;
 use std::path::*;
 
 use anyhow::*;
 use memmap::Mmap;
-use semver::Version;
+use owning_ref::OwningHandle;
 use piz::read::{Directory, DirectoryEntry, FileTree, ZipArchive};
+use semver::Version;
 
 use crate::modification::Mod;
 
+type ZipArchiveHandle = OwningHandle<Box<Mmap>, Box<ZipArchive<'static>>>;
+type FileTreeHandle = OwningHandle<ZipArchiveHandle, Box<FileTree<'static>>>;
+
 pub struct ZipMod {
-    mmap: Mmap,
-
-    z: ZipArchive<'what_do>,
-
-    /*
-    tree: FileTree<'a>,
+    tree: FileTreeHandle,
 
     /// The base mod directory name, which we need to strip off of all paths.
-    base_dir: &'a Directory<'a>,
+    base_dir: &'static Directory<'static>,
 
     v: Version,
 
     r: String,
-    */
 }
 
-impl ZipMod<'_> {
+impl ZipMod {
     pub fn new(zip_path: &Path) -> Result<Self> {
         let file = File::open(zip_path)?;
-        // We'll be doing lots of seeking, so let's memory map the file
-        // to save on all the read calls we'd do otherwise.
-        let mmap = unsafe { Mmap::map(&file)? };
-        let z = ZipArchive::new(&mmap)?;
-        /*
-        let tree = FileTree::new(z.entries())?;
+        let mmap = Box::new(unsafe { Mmap::map(&file)? });
+
+        let archive = OwningHandle::try_new(mmap, unsafe {
+            |map| ZipArchive::new(map.as_ref().unwrap()).map(Box::new)
+        })?;
+        let tree = OwningHandle::try_new(archive, unsafe {
+            |ar| FileTree::new(ar.as_ref().unwrap().entries()).map(Box::new)
+        })?;
 
         let mut version_info: Option<Version> = None;
 
         let mut readme: Option<String> = None;
 
-        let mut base_dir: Option<&Directory> = None;
+        let mut base_dir: *const Directory = std::ptr::null();
 
         for (path, entry) in &tree.root {
-
             // TODO: Parcel out into functions
             match &*path.to_string_lossy() {
                 // Carve out special exception for .git in case people build
@@ -53,7 +53,9 @@ impl ZipMod<'_> {
                 }
                 "VERSION.txt" => {
                     assert!(version_info.is_none());
-                    let mut vf = z.read(entry.metadata())
+                    let z = tree.as_owner();
+                    let mut vf = z
+                        .read(entry.metadata())
                         .context("Couldn't open VERSION.txt")?;
                     let mut version_string = String::new();
                     vf.read_to_string(&mut version_string)?;
@@ -63,7 +65,9 @@ impl ZipMod<'_> {
                 }
                 "README.txt" => {
                     assert!(readme.is_none());
-                    let mut rf = z.read(entry.metadata())
+                    let z = tree.as_owner();
+                    let mut rf = z
+                        .read(entry.metadata())
                         .context("Couldn't open README.txt")?;
                     let mut readme_string = String::new();
                     rf.read_to_string(&mut readme_string)?;
@@ -71,13 +75,19 @@ impl ZipMod<'_> {
                 }
                 _ => {
                     if let DirectoryEntry::Directory(dir) = entry {
-                        if base_dir.is_none() {
-                            base_dir = Some(&dir);
+                        if base_dir.is_null() {
+                            base_dir = &*dir;
                         } else {
-                            bail!("{} contains more than one base directory.", zip_path.display());
+                            bail!(
+                                "{} contains more than one base directory.",
+                                zip_path.display()
+                            );
                         }
                     } else {
-                        bail!("{} contains files root besides README.txt and VERSION.txt.", zip_path.display());
+                        bail!(
+                            "{} contains files root besides README.txt and VERSION.txt.",
+                            zip_path.display()
+                        );
                     }
                 }
             };
@@ -89,26 +99,30 @@ impl ZipMod<'_> {
         if readme.is_none() {
             bail!("Couldn't find README.txt");
         }
-        if base_dir.is_none() {
+        if base_dir.is_null() {
             bail!("Couldn't find a base directory");
         }
-        */
 
-        Ok(ZipMod {
-            mmap,
-            z,
-            /*
+        Ok(Self {
             tree,
-            base_dir: base_dir.unwrap(),
+            // the pointee doesn't move. It lives in a Box -
+            // see [`owning_ref::StableAddress`](http://kimundi.github.io/owning-ref-rs/owning_ref/trait.StableAddress.html)
+            // - so moving Self won't invalidate the address.
+            // We make the lifetime of this reference `&'static` because there's
+            // no lifetime to tag it with, so handing that reference to other
+            // code would be quite unsafe... but we have no reason to.
+            base_dir: unsafe { base_dir.as_ref().unwrap() },
             v: version_info.unwrap(),
             r: readme.unwrap(),
-            */
         })
+    }
+
+    fn zip_archive(&self) -> &ZipArchive {
+        self.tree.as_owner()
     }
 }
 
-/*
-impl Mod for ZipMod<'_> {
+impl Mod for ZipMod {
     fn paths(&self) -> Result<Vec<PathBuf>> {
         todo!();
     }
@@ -125,4 +139,3 @@ impl Mod for ZipMod<'_> {
         &self.r
     }
 }
-*/

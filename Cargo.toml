@@ -20,5 +20,6 @@ atty = "0.2"
 stderrlog = "0.4"
 hex = "0.4"
 memmap = "0.7"
+owning_ref = "0.4"
 piz = { version = "0.3", path = "../piz-rs/piz" }
 rayon = "1.0"
