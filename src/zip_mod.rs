@@ -5,13 +5,13 @@ use std::path::*;
 use anyhow::*;
 use memmap::Mmap;
 use owning_ref::OwningHandle;
-use piz::read::{Directory, DirectoryEntry, FileTree, ZipArchive};
+use piz::read::*;
 use semver::Version;
 
 use crate::modification::Mod;
 
 type ZipArchiveHandle = OwningHandle<Box<Mmap>, Box<ZipArchive<'static>>>;
-type FileTreeHandle = OwningHandle<ZipArchiveHandle, Box<FileTree<'static>>>;
+type FileTreeHandle = OwningHandle<ZipArchiveHandle, Box<DirectoryContents<'static>>>;
 
 pub struct ZipMod {
     tree: FileTreeHandle,
@@ -33,7 +33,7 @@ impl ZipMod {
             |map| ZipArchive::new(map.as_ref().unwrap()).map(Box::new)
         })?;
         let tree = OwningHandle::try_new(archive, unsafe {
-            |ar| FileTree::new(ar.as_ref().unwrap().entries()).map(Box::new)
+            |ar| piz::read::as_tree(ar.as_ref().unwrap().entries()).map(Box::new)
         })?;
 
         let mut version_info: Option<Version> = None;
@@ -42,7 +42,7 @@ impl ZipMod {
 
         let mut base_dir: *const Directory = std::ptr::null();
 
-        for (path, entry) in &tree.root {
+        for (path, entry) in tree.iter() {
             // TODO: Parcel out into functions
             match &*path.to_string_lossy() {
                 // Carve out special exception for .git in case people build
@@ -111,7 +111,7 @@ impl ZipMod {
             // We make the lifetime of this reference `&'static` because there's
             // no lifetime to tag it with, so handing that reference to other
             // code would be quite unsafe... but we have no reason to.
-            base_dir: unsafe { base_dir.as_ref().unwrap() },
+            base_dir: unsafe { &base_dir.as_ref().unwrap() },
             v: version_info.unwrap(),
             r: readme.unwrap(),
         })
@@ -124,11 +124,18 @@ impl ZipMod {
 
 impl Mod for ZipMod {
     fn paths(&self) -> Result<Vec<PathBuf>> {
-        todo!();
+        Ok(self.base_dir.children.files().map(|d| {
+                let whole_path = d.path.as_ref();
+                let base_dir_path = self.base_dir.metadata.path.as_ref();
+                let sans_base_dir = whole_path.strip_prefix(base_dir_path).unwrap();
+                PathBuf::from(sans_base_dir)
+        }).collect())
     }
 
-    fn read_file(&self, p: &Path) -> Result<Box<dyn Read>> {
-        todo!();
+    fn read_file<'a>(&'a self, p: &Path) -> Result<Box<dyn Read + Send + 'a>> {
+        let metadata = FileTree::get(&self.base_dir.children, p)?;
+        let reader = self.zip_archive().read(metadata)?;
+        Ok(reader)
     }
 
     fn version(&self) -> &Version {

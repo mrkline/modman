@@ -90,7 +90,7 @@ impl Mod for DirectoryMod {
         collect_file_paths_in_dir(&self.base_dir)
     }
 
-    fn read_file(&self, p: &Path) -> Result<Box<dyn Read>> {
+    fn read_file<'a>(&'a self, p: &Path) -> Result<Box<dyn Read + Send + 'a>> {
         let whole_path = self.base_dir.join(p);
         let f = fs::File::open(&whole_path)
             .with_context(|| format!("Couldn't open mod file ({})", whole_path.display()))?;

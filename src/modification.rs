@@ -13,7 +13,7 @@ pub trait Mod {
     /// stripped away
     fn paths(&self) -> Result<Vec<PathBuf>>;
 
-    fn read_file(&self, p: &Path) -> Result<Box<dyn Read>>;
+    fn read_file<'a>(&'a self, p: &Path) -> Result<Box<dyn Read + Send + 'a>>;
 
     fn version(&self) -> &Version;
 
@@ -27,8 +27,7 @@ pub fn open_mod(p: &Path) -> Result<Box<dyn Mod + Sync>> {
     if stat.is_file() {
         let z =
             ZipMod::new(p).with_context(|| format!("trouble reading mod file {}", p.display()))?;
-        todo!();
-    // Ok(Box::new(z))
+        Ok(Box::new(z))
     } else if stat.is_dir() {
         let d = DirectoryMod::new(p)
             .with_context(|| format!("Trouble reading mod directory {}", p.display()))?;
