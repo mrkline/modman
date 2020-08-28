@@ -1,7 +1,7 @@
 {
   "root_directory": "rootdir",
   "mods": {
-    "mod1": {
+    "mod1.zip": {
       "version": "1.2.3",
       "files": {
         "A.txt": {
