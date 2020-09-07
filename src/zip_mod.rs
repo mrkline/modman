@@ -2,11 +2,11 @@ use std::fs::File;
 use std::io::Read;
 use std::path::*;
 
+use self::piz::FileTree;
 use anyhow::*;
 use memmap::Mmap;
 use owning_ref::OwningHandle;
 use piz::read as piz;
-use self::piz::FileTree;
 use semver::Version;
 
 use crate::modification::Mod;
@@ -125,12 +125,17 @@ impl ZipMod {
 
 impl Mod for ZipMod {
     fn paths(&self) -> Result<Vec<PathBuf>> {
-        Ok(self.base_dir.children.files().map(|d| {
+        Ok(self
+            .base_dir
+            .children
+            .files()
+            .map(|d| {
                 let whole_path = d.path.as_ref();
                 let base_dir_path = self.base_dir.metadata.path.as_ref();
                 let sans_base_dir = whole_path.strip_prefix(base_dir_path).unwrap();
                 PathBuf::from(sans_base_dir)
-        }).collect())
+            })
+            .collect())
     }
 
     fn read_file<'a>(&'a self, p: &Path) -> Result<Box<dyn Read + Send + 'a>> {
