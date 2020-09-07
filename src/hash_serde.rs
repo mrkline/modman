@@ -13,7 +13,7 @@ impl Serialize for FileHash {
     where
         S: Serializer,
     {
-        let as_hex = hex::encode(self.bytes.as_slice());
+        let as_hex = hex::encode(&self.bytes);
         serializer.serialize_str(&as_hex)
     }
 }
